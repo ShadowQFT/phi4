@@ -60,4 +60,4 @@ out of Git.
 
 ## AI assistance
 
-I use ChatGPT/Codex for help with implementation, debugging, and code explanations.
+Codex was used to asssit with implementation/debugging. 

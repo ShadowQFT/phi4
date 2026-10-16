@@ -54,7 +54,7 @@ class Workflow(unittest.TestCase):
             'campaign = "local-smoke"', f'campaign = "test-{uuid.uuid4().hex}"'
         )
         text = text.replace(
-            'run_id = "L4-T1-disordered-seed5409001-attempt01"', f'run_id = "{run_id}"'
+            'run_id = "L4-T1-random-seed5409001-attempt01"', f'run_id = "{run_id}"'
         )
         text = text.replace("equilibration_sweeps = 100", "equilibration_sweeps = 10")
         text = text.replace("measurement_sweeps = 100", "measurement_sweeps = 20")
@@ -78,7 +78,7 @@ class Workflow(unittest.TestCase):
             self.assertEqual((a / name).read_bytes(), (b / name).read_bytes())
         meta = json.loads((a / "metadata.json").read_text())
         self.assertEqual(meta["status"], "SUCCESS")
-        self.assertEqual(meta["sample_count"], 10)
+        self.assertEqual(meta["measurement_count"], 10)
         self.assertEqual(meta["adaptation_stop_sweep"], 50)
         import csv
 

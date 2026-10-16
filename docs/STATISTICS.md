@@ -40,7 +40,7 @@ with 2000 and check interval stability if results depend on tail quantiles.
 
 Combine compatible equilibrated chains with explicit sample counts and
 weights; compare chain estimates first. Retain their identities. Avoid
-forcing ordered/disordered chains to agree by unreported exclusions.
+forcing ordered/random chains to agree by unreported exclusions.
 Independent seeds do not make unequal or unequilibrated chains exchangeable.
 
 Recompute Tc and all subsequent fits inside each joint bootstrap replicate.

@@ -34,7 +34,7 @@ class Analysis(unittest.TestCase):
         # Keep test-only font caches inside the build tree.
         os.environ.setdefault("MPLCONFIGDIR", str(parent / "matplotlib-cache"))
 
-    def fixture(self, name, *, start="disordered", seed=1, count=1027):
+    def fixture(self, name, *, start="random", seed=1, count=1027):
         folder = self.artifacts / name
         folder.mkdir()
         text = (REPO / "configs/local/smoke.example.toml").read_text(encoding="utf-8")
@@ -42,9 +42,9 @@ class Analysis(unittest.TestCase):
             'campaign = "local-smoke"', 'campaign = "synthetic-validation"'
         )
         text = text.replace(
-            'run_id = "L4-T1-disordered-seed5409001-attempt01"', f'run_id = "{name}"'
+            'run_id = "L4-T1-random-seed5409001-attempt01"', f'run_id = "{name}"'
         )
-        text = text.replace('start = "disordered"', f'start = "{start}"')
+        text = text.replace('start = "random"', f'start = "{start}"')
         text = text.replace("seed = 5409001", f"seed = {seed}")
         text = text.replace("equilibration_sweeps = 100", "equilibration_sweeps = 10")
         text = text.replace("measurement_sweeps = 100", f"measurement_sweeps = {count}")
@@ -87,7 +87,7 @@ class Analysis(unittest.TestCase):
             "exit_code": 0,
             "N": 64,
             "config": config,
-            "sample_count": count,
+            "measurement_count": count,
             "final_step_size": 1,
             "dataset_kind": "synthetic_validation",
         }

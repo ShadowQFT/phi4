@@ -26,7 +26,7 @@ int main() {
             return 1;
     // At |phi|=8 the density is below exp(-580); tail omission is negligible.
     phi4::Sampler sampler(3, {0, -1, 1}, 1.7, 772172, 2);
-    sampler.initialize("disordered");
+    sampler.initialize("random");
     for (int i = 0; i < 2000; ++i)
         sampler.sweep();
     std::vector<std::array<double, 3>> blocks;

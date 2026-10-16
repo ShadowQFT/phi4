@@ -9,7 +9,7 @@ r = -1.0
 u = 1.0
 boundary = "periodic"
 [sampling]
-start = "disordered"
+start = "random"
 seed = 5409001
 update_order = "sequential"
 step_size = 1.0
@@ -19,6 +19,6 @@ measurement_sweeps = 100
 measure_every_sweeps = 1
 [output]
 campaign = "local-smoke"
-run_id = "L4-T1-disordered-seed5409001-attempt01"
+run_id = "L4-T1-random-seed5409001-attempt01"
 root = "data/raw"
 save_time_series = true

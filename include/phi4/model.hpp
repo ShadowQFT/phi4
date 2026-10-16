@@ -12,7 +12,6 @@ struct Model {
     double u = 1;
 
     void validate() const {
-        // J=0 supports the independent on-site distribution validation.
         if (!std::isfinite(J) || !std::isfinite(r) || !std::isfinite(u) || J < 0 || r >= 0 ||
             u <= 0) {
             throw std::invalid_argument("Require finite J>=0, r<0, u>0");
@@ -22,17 +21,19 @@ struct Model {
 class Lattice {
   public:
     explicit Lattice(int length) : L(length) {
-        // L=1/2 need different self-bond or repeated-neighbor conventions.
         if (L < 3 || L > 512) {
             throw std::invalid_argument("L must be in [3,512]");
         }
-        const auto n = static_cast<std::size_t>(L) * L * L;
-        field.resize(n);
+
+        const auto n = static_cast<std::size_t>(L) * L * L; // total number of sites
+        field.resize(n); // set vector size to total number of sites
         neighbors.resize(n);
+
+        // Initialize neighbor indices for each site
         for (int z = 0; z < L; ++z) {
             for (int y = 0; y < L; ++y) {
                 for (int x = 0; x < L; ++x) {
-                    // Pair order is +x,-x,+y,-y,+z,-z throughout the model.
+                    // Pair order is +x,-x,+y,-y,+z,-z 
                     neighbors[index(x, y, z)] = {
                         index((x + 1) % L, y, z), index((x + L - 1) % L, y, z),
                         index(x, (y + 1) % L, z), index(x, (y + L - 1) % L, z),
@@ -48,19 +49,22 @@ class Lattice {
 
     int L;
     std::vector<double> field;
-    std::vector<std::array<std::size_t, 6>> neighbors;
+    // neighbor indices for each site, looks like {+x,-x,+y,-y,+z,-z}
+    std::vector<std::array<std::size_t, 6>> neighbors; 
 };
 
 inline double onsite(double a, const Model &p) {
+    // On-site potential energy 
     const double squared = a * a;
     return 0.5 * p.r * squared + 0.25 * p.u * squared * squared;
 }
 
 inline double energy(const Lattice &lattice, const Model &model) {
+    // total energy
     double total = 0;
     for (std::size_t i = 0; i < lattice.field.size(); ++i) {
         const double field = lattice.field[i];
-        // Positive directions count each undirected bond exactly once.
+        // Positive directions to count each bond only once
         const double positive_neighbors = lattice.field[lattice.neighbors[i][0]] +
                                           lattice.field[lattice.neighbors[i][2]] +
                                           lattice.field[lattice.neighbors[i][4]];
@@ -71,6 +75,7 @@ inline double energy(const Lattice &lattice, const Model &model) {
 
 inline double delta_energy(const Lattice &lattice, const Model &model, std::size_t site,
                            double proposed) {
+    // Energy change for a proposed update at a single site
     double neighbor_sum = 0;
     for (auto neighbor : lattice.neighbors.at(site)) {
         neighbor_sum += lattice.field[neighbor];

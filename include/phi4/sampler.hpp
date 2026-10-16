@@ -19,7 +19,7 @@ class Sampler {
     }
 
     void initialize(const std::string &start) {
-        if (start == "disordered") {
+        if (start == "random") {
             std::uniform_real_distribution<double> initial_field(-1.0, 1.0);
             for (auto &field : lattice.field) {
                 field = initial_field(rng);
@@ -38,19 +38,27 @@ class Sampler {
         std::size_t accepted = 0;
         std::uniform_real_distribution<double> displacement(-step_size, step_size);
         std::uniform_real_distribution<double> probability(0.0, 1.0);
-        // Visit each site once. Parallel workers must use separate chains.
+
+        // Monte Carlo Loop
         for (std::size_t i = 0; i < lattice.field.size(); ++i) {
-            const double proposed = lattice.field[i] + displacement(rng);
+            // propose new field value
+            const double proposed = lattice.field[i] + displacement(rng); 
+
+            // compute energy change for the proposed update
             const double delta_h = delta_energy(lattice, model, i, proposed);
+
+            // accept with boltzmann probability
             if (accept(delta_h, temperature, probability(rng))) {
                 lattice.field[i] = proposed;
                 ++accepted;
             }
         }
+        // return acceptance rate for this sweep
         return static_cast<double>(accepted) / lattice.field.size();
     }
 
     double magnetization() const {
+        // m = (1/N) * sum_i phi_i
         double total = 0;
         for (double field : lattice.field) {
             total += field;

@@ -128,7 +128,7 @@ def load_run(folder: Path) -> RunData:
         ["sample_index", "sweep", "energy_per_site", "magnetization"],
     )
     expected_count = sampling["measurement_sweeps"] // interval
-    if len(rows) != expected_count or metadata["sample_count"] != expected_count:
+    if len(rows) != expected_count or metadata["measurement_count"] != expected_count:
         raise ValueError("Incorrect production sample count")
     sweeps = np.array([int(row["sweep"]) for row in rows], dtype=np.int64)
     for index, row in enumerate(rows):

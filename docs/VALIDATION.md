@@ -13,7 +13,7 @@ Physics-bearing changes require independent expected values or identities.
 | V6 observables | Fixed synthetic distributions | Known moments, B4, N/T factors; constant/zero edge cases |
 | V7 statistics | Correlated synthetic series, nonlinear ratios | Known variance inflation and resampling consistency |
 | V8 workflow | Tiny Windows and Mill run | Config, metadata, series, exit status, seed replay on same binary |
-| V9 equilibrium | Ordered/disordered and split histories | Stable e, |m|, m^2 with justified burn-in and block errors |
+| V9 equilibrium | Ordered/random and split histories | Stable e, |m|, m^2 with justified burn-in and block errors |
 | V10 scaling | Tc, windows, Lmin, correlated derived exponents | Refit sensitivity, residuals, bootstrap intervals, clear exclusions |
 
 V1-V4 precede useful simulation runs. V5-V8 precede production. V9-V10

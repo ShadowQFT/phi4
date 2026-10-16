@@ -26,10 +26,21 @@ Windows and Mill are not required, but same-binary replay should work.
 
 ## Initial states and burn-in
 
-Ordered positive/negative starts use +/-sqrt((6J-r)/u). A disordered start
+Ordered positive/negative starts use +/-sqrt((6J-r)/u). A random start
 uses independent uniform fields in [-1,1], explicitly recorded.
-Generate independent chains at each T first; avoid treating an annealed
-temperature scan as independently equilibrated data.
+The start names describe the initial field configuration, not quenched disorder.
+`random` draws each field independently; `ordered_positive` and
+`ordered_negative` keep the two signs of the uniform ordered state distinct.
+
+The planned temperature scan uses these directions:
+- A hot start uses `random` at the highest temperature and scans downward.
+- An ordered start uses either ordered sign at the lowest temperature and scans
+  upward.
+
+Each scan will carry the final lattice configuration to the next temperature,
+with burn-in at each temperature before measurements. Temperatures within a scan
+share a history; they are not independent chains. The current runner still
+simulates one temperature per invocation; continuation scans are not implemented.
 
 During burn-in only, tune step_size at fixed intervals using a bounded rule
 targeting approximately 40-60% acceptance. Every 50 sweeps, multiply the
@@ -40,7 +51,7 @@ Freeze step_size before a final fixed-kernel burn-in segment and all
 measurements. Exclude all burn-in/adaptation samples from estimates.
 
 Record burn-in diagnostics separately. Compare e, |m|, m^2, and B4 from
-ordered and disordered starts, including split-chain stability. Do not
+ordered and random starts, including split-chain stability. Do not
 demand sign flips alone as proof of equilibrium or combine chains that
 retain incompatible histories. Increase burn-in or length if needed.
 

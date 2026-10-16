@@ -1,7 +1,5 @@
 """Run one phi4 simulation from a TOML configuration."""
 
-from __future__ import annotations
-
 import argparse
 import csv
 import hashlib
@@ -16,107 +14,145 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Resolve paths relative to the repository, even when called from another folder.
 REPO = Path(__file__).resolve().parents[1]
 
 
 def sha256(path):
-    """Stream hashes so large histories need no extra full memory copy."""
-    with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+    """Calculate a file's checksum so later changes can be detected."""
+    with Path(path).open("rb") as input_file:
+        checksum = hashlib.file_digest(input_file, "sha256")
+    return checksum.hexdigest()
 
 
 def utc():
-    return datetime.now(timezone.utc).isoformat()
+    """Return the current time in UTC for the run record."""
+    current_time = datetime.now(timezone.utc)
+    return current_time.isoformat()
 
 
-def exact_keys(section, keys, name):
-    """Reject misspelled parameters rather than silently using defaults."""
-    if not isinstance(section, dict) or set(section) != set(keys.split()):
-        raise ValueError(f"{name}: expected exactly {keys}")
+def check_keys(section, expected_keys, section_name):
+    """Require all expected settings and reject extra or misspelled settings."""
+    if not isinstance(section, dict):
+        raise ValueError(f"{section_name} must be a configuration section")
+    if set(section.keys()) != set(expected_keys):
+        raise ValueError(f"{section_name}: expected exactly {expected_keys}")
 
 
-def number(value, name, low=None, strict=False):
-    if type(value) not in (int, float) or not math.isfinite(value):
+def check_number(value, name):
+    """Require an ordinary finite number; True and False are not valid numbers."""
+    # Python treats bool as a kind of int, so check the exact type here.
+    if type(value) not in (int, float):
         raise ValueError(f"{name} must be a finite number")
-    if low is not None and (value <= low if strict else value < low):
-        raise ValueError(f"{name} is below its allowed bound")
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite number")
 
 
-def integer(value, name, low, high=10**9):
-    if type(value) is not int or not low <= value <= high:
-        raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+def check_integer(value, name, minimum, maximum=10**9):
+    """Require an integer within the allowed range, including both endpoints."""
+    if type(value) is not int:
+        raise ValueError(f"{name} must be an integer")
+    if value < minimum or value > maximum:
+        raise ValueError(f"{name} must be in [{minimum}, {maximum}]")
 
 
 def validate(config):
-    """Validate the complete schema before creating any output."""
-    exact_keys(config, "schema_version model sampling output", "root")
+    """Check the configuration before creating files or starting the simulator."""
+    # Check the section names before accessing their contents.
+    check_keys(config, ["schema_version", "model", "sampling", "output"], "root")
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         raise ValueError("schema_version must be 1")
-    model, sampling, output_settings = (
-        config["model"],
-        config["sampling"],
-        config["output"],
-    )
-    exact_keys(model, "name L temperature J r u boundary", "model")
-    exact_keys(
+
+    model = config["model"]
+    sampling = config["sampling"]
+    output_settings = config["output"]
+
+    check_keys(model, ["name", "L", "temperature", "J", "r", "u", "boundary"], "model")
+    check_keys(
         sampling,
-        "start seed update_order step_size adaptation_sweeps equilibration_sweeps measurement_sweeps measure_every_sweeps",
+        [
+            "start",
+            "seed",
+            "update_order",
+            "step_size",
+            "adaptation_sweeps",
+            "equilibration_sweeps",
+            "measurement_sweeps",
+            "measure_every_sweeps",
+        ],
         "sampling",
     )
-    exact_keys(output_settings, "campaign run_id root save_time_series", "output")
-    if model["name"] != "clean_phi4_3d" or model["boundary"] != "periodic":
-        raise ValueError("Unsupported model or boundary")
-    integer(model["L"], "L", 3, 512)
-    for name in ("temperature", "u"):
-        number(model[name], name, 0, True)
-    number(
-        model["J"], "J", 0
-    )  # J=0 is allowed for the independent-distribution validation.
-    number(model["r"], "r")
+    check_keys(
+        output_settings,
+        ["campaign", "run_id", "root", "save_time_series"],
+        "output",
+    )
+
+    # Model parameters: positive temperature and u, nonnegative J, negative r.
+    if model["name"] != "clean_phi4_3d":
+        raise ValueError("Unsupported model")
+    if model["boundary"] != "periodic":
+        raise ValueError("Only periodic boundaries are supported")
+    check_integer(model["L"], "L", 3, 512)
+    for parameter_name in ("temperature", "J", "r", "u"):
+        check_number(model[parameter_name], parameter_name)
+    if model["temperature"] <= 0:
+        raise ValueError("temperature must be positive")
+    if model["u"] <= 0:
+        raise ValueError("u must be positive")
+    # J=0 is useful for checking the sampler against independent-site results.
+    if model["J"] < 0:
+        raise ValueError("J must be nonnegative")
     if model["r"] >= 0:
         raise ValueError("r must be negative")
-    if (
-        sampling["start"] not in ("ordered_positive", "ordered_negative", "disordered")
-        or sampling["update_order"] != "sequential"
-    ):
-        raise ValueError("Invalid initialization or update order")
-    integer(sampling["seed"], "seed", 0, 2**64 - 1)
-    number(sampling["step_size"], "step_size", 0, True)
-    if not 1e-4 <= sampling["step_size"] <= 100:
+
+    # Sampling settings: initialization, random seed, and sweep counts.
+    allowed_starts = ["random", "ordered_positive", "ordered_negative"]
+    if sampling["start"] not in allowed_starts:
+        raise ValueError(f"start must be one of {allowed_starts}")
+    if sampling["update_order"] != "sequential":
+        raise ValueError("Only sequential updates are supported")
+    check_integer(sampling["seed"], "seed", 0, 2**64 - 1)
+    check_number(sampling["step_size"], "step_size")
+    if sampling["step_size"] < 0.0001 or sampling["step_size"] > 100:
         raise ValueError("step_size must be in [0.0001, 100]")
-    integer(sampling["adaptation_sweeps"], "adaptation_sweeps", 0)
-    for name in ("equilibration_sweeps", "measurement_sweeps", "measure_every_sweeps"):
-        integer(sampling[name], name, 1)
-    if sampling["measurement_sweeps"] % sampling["measure_every_sweeps"]:
+    check_integer(sampling["adaptation_sweeps"], "adaptation_sweeps", 0)
+    check_integer(sampling["equilibration_sweeps"], "equilibration_sweeps", 1)
+    check_integer(sampling["measurement_sweeps"], "measurement_sweeps", 1)
+    check_integer(sampling["measure_every_sweeps"], "measure_every_sweeps", 1)
+
+    measurement_sweeps = sampling["measurement_sweeps"]
+    measurement_interval = sampling["measure_every_sweeps"]
+    if measurement_sweeps % measurement_interval != 0:
         raise ValueError("measurement_sweeps must be divisible by measure_every_sweeps")
-    for name in ("campaign", "run_id"):
-        if not isinstance(output_settings[name], str) or not re.fullmatch(
-            r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", output_settings[name]
-        ):
-            raise ValueError(f"Invalid {name}")
+
+    # Output names become folder names. Allow letters, numbers, '_' and '-'.
+    for setting_name in ("campaign", "run_id"):
+        folder_name = output_settings[setting_name]
+        if not isinstance(folder_name, str):
+            raise ValueError(f"{setting_name} must be a string")
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,127}", folder_name) is None:
+            raise ValueError(f"Invalid {setting_name}")
     if output_settings["save_time_series"] is not True:
         raise ValueError("Full time series are required")
-    root = (
-        Path(output_settings["root"])
-        if isinstance(output_settings["root"], str)
-        else None
-    )
-    if (
-        root is None
-        or root.is_absolute()
-        or root.drive
-        or ".." in root.parts
-        or not root.parts
-    ):
+
+    # Keep generated files inside the repository, including through symlinks.
+    if not isinstance(output_settings["root"], str):
+        raise ValueError("output.root must be a relative path")
+    output_root = Path(output_settings["root"])
+    if output_root.is_absolute() or output_root.drive:
+        raise ValueError("output.root must be a relative path")
+    if ".." in output_root.parts or not output_root.parts:
         raise ValueError("output.root must be a relative path without parent traversal")
-    if not (REPO / root).resolve().is_relative_to(REPO):
+    resolved_output_root = (REPO / output_root).resolve()
+    if not resolved_output_root.is_relative_to(REPO):
         raise ValueError("output.root escapes the repository")
     return config
 
 
 def source_snapshot():
-    """Capture numerical, launcher, analysis and test sources by content hash."""
-    patterns = [
+    """List the source files and calculate a checksum for each one."""
+    source_patterns = [
         "include/**/*.hpp",
         "src/*.cpp",
         "scripts/*.py",
@@ -125,94 +161,126 @@ def source_snapshot():
         "tests/**/*.cpp",
         "CMakeLists.txt",
     ]
-    paths = []
-    for pattern in patterns:
-        paths.extend(REPO.glob(pattern))
-    paths.sort()
-    files = {p.relative_to(REPO).as_posix(): sha256(p) for p in paths}
-    identity = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
-    return identity, files, paths
+    source_paths = []
+    for pattern in source_patterns:
+        source_paths.extend(REPO.glob(pattern))
+    source_paths.sort()
+
+    source_checksums = {}
+    for source_path in source_paths:
+        relative_path = source_path.relative_to(REPO).as_posix()
+        source_checksums[relative_path] = sha256(source_path)
+
+    # Hash the whole list too, giving this collection of sources one identifier.
+    checksum_list = json.dumps(source_checksums, sort_keys=True)
+    source_id = hashlib.sha256(checksum_list.encode("utf-8")).hexdigest()
+    return source_id, source_checksums, source_paths
 
 
 def validate_outputs(folder, config):
-    """Verify row counts and counters even after a zero simulator exit."""
-    s = config["sampling"]
-    count = 0
-    first_sweep = s["adaptation_sweeps"] + s["equilibration_sweeps"]
-    with (folder / "measurements.csv").open(newline="") as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames != [
+    """Check the saved measurements even if the simulator reports success."""
+    sampling = config["sampling"]
+    burn_in_sweeps = sampling["adaptation_sweeps"] + sampling["equilibration_sweeps"]
+    measurement_interval = sampling["measure_every_sweeps"]
+    expected_measurement_count = sampling["measurement_sweeps"] // measurement_interval
+
+    # Measurements start after burn-in. The CSV sample index starts at zero.
+    measurement_count = 0
+    with (folder / "measurements.csv").open(newline="") as measurement_file:
+        measurement_rows = csv.DictReader(measurement_file)
+        expected_header = [
             "sample_index",
             "sweep",
             "energy_per_site",
             "magnetization",
-        ]:
+        ]
+        if measurement_rows.fieldnames != expected_header:
             raise ValueError("Unexpected measurement header")
-        for count, row in enumerate(reader, 1):
-            if (
-                int(row["sample_index"]) != count - 1
-                or int(row["sweep"]) != first_sweep + count * s["measure_every_sweeps"]
-            ):
-                raise ValueError("Unexpected sample index or sweep")
-            if not all(
-                math.isfinite(float(row[k]))
-                for k in ("energy_per_site", "magnetization")
-            ):
-                raise ValueError("Nonfinite measurements")
-    if count != s["measurement_sweeps"] // s["measure_every_sweeps"]:
-        raise ValueError("Incorrect sample count")
-    eq_count = 0
-    with (folder / "equilibration.csv").open(newline="") as f:
-        for eq_count, row in enumerate(csv.DictReader(f), 1):
-            if int(row["sweep"]) != eq_count:
+
+        for row in measurement_rows:
+            expected_sample_index = measurement_count
+            measurement_count += 1
+            expected_sweep = burn_in_sweeps + measurement_count * measurement_interval
+            if int(row["sample_index"]) != expected_sample_index:
+                raise ValueError("Unexpected sample index")
+            if int(row["sweep"]) != expected_sweep:
+                raise ValueError("Unexpected measurement sweep")
+            for column_name in ("energy_per_site", "magnetization"):
+                value = float(row[column_name])
+                if not math.isfinite(value):
+                    raise ValueError(f"Nonfinite measurement: {column_name}")
+
+    if measurement_count != expected_measurement_count:
+        raise ValueError("Incorrect measurement count")
+
+    # Burn-in has one diagnostic row per sweep, including adaptation and settling.
+    equilibration_count = 0
+    with (folder / "equilibration.csv").open(newline="") as equilibration_file:
+        equilibration_rows = csv.DictReader(equilibration_file)
+        for row in equilibration_rows:
+            equilibration_count += 1
+            if int(row["sweep"]) != equilibration_count:
                 raise ValueError("Invalid equilibration counter")
-            if not all(
-                math.isfinite(float(row[k]))
-                for k in ("energy_per_site", "magnetization", "acceptance", "step_size")
+            for column_name in (
+                "energy_per_site",
+                "magnetization",
+                "acceptance",
+                "step_size",
             ):
-                raise ValueError("Nonfinite equilibration")
-            if not 0 <= float(row["acceptance"]) <= 1 or float(row["step_size"]) <= 0:
-                raise ValueError("Invalid equilibration diagnostics")
-    if eq_count != first_sweep:
+                value = float(row[column_name])
+                if not math.isfinite(value):
+                    raise ValueError(f"Nonfinite equilibration value: {column_name}")
+            acceptance = float(row["acceptance"])
+            step_size = float(row["step_size"])
+            if acceptance < 0 or acceptance > 1:
+                raise ValueError("Equilibration acceptance must be in [0, 1]")
+            if step_size <= 0:
+                raise ValueError("Equilibration step_size must be positive")
+
+    if equilibration_count != burn_in_sweeps:
         raise ValueError("Incorrect equilibration count")
-    return count
+    return measurement_count
 
 
 def write_metadata(folder, metadata):
-    """Replace the file atomically so an interruption cannot leave half a JSON file."""
-    temporary = folder / "metadata.tmp"
-    temporary.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(folder / "metadata.json")
+    """Save the run record without leaving a partially written JSON file."""
+    # Finish writing a temporary file, then replace the previous record.
+    temporary_path = folder / "metadata.tmp"
+    metadata_text = json.dumps(metadata, indent=2) + "\n"
+    temporary_path.write_text(metadata_text, encoding="utf-8")
+    temporary_path.replace(folder / "metadata.json")
 
 
 def archive_sources(folder):
-    """Keep the source files present at launch, along with their content hashes."""
-    source_id, checksums, paths = source_snapshot()
+    """Save a copy of the source files alongside this run."""
+    source_id, source_checksums, source_paths = source_snapshot()
     with zipfile.ZipFile(folder / "source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in paths:
-            archive.write(path, path.relative_to(REPO).as_posix())
-    return source_id, checksums
+        for source_path in source_paths:
+            relative_path = source_path.relative_to(REPO).as_posix()
+            archive.write(source_path, relative_path)
+    return source_id, source_checksums
 
 
 def run(config_path, binary):
-    """Launch one chain and preserve successful and failed attempts."""
-    raw = Path(config_path).read_bytes()
-    config = validate(tomllib.loads(raw.decode("utf-8")))
-    binary = Path(binary).resolve(strict=True)
-    model, sampling, output_settings = (
-        config["model"],
-        config["sampling"],
-        config["output"],
-    )
-    folder = (
+    """Read the configuration, run one chain, and check and record its output."""
+    # Read and validate before creating the output directory.
+    config_bytes = Path(config_path).read_bytes()
+    config = tomllib.loads(config_bytes.decode("utf-8"))
+    validate(config)
+    binary_path = Path(binary).resolve(strict=True)
+    model = config["model"]
+    sampling = config["sampling"]
+    output_settings = config["output"]
+
+    output_directory = (
         REPO
         / output_settings["root"]
         / output_settings["campaign"]
         / output_settings["run_id"]
     )
-    # A retry needs a new run_id; completed raw data must not be replaced.
-    folder.mkdir(parents=True, exist_ok=False)
-    meta = {
+    # Refuse to overwrite an existing attempt. A retry needs a new run_id.
+    output_directory.mkdir(parents=True, exist_ok=False)
+    metadata = {
         "schema_version": 1,
         "status": "RUNNING",
         "started_utc": utc(),
@@ -220,33 +288,40 @@ def run(config_path, binary):
     }
 
     try:
-        write_metadata(folder, meta)
-        (folder / "config.resolved.toml").write_bytes(raw)
-        meta.update(
-            {
-                "N": model["L"] ** 3,
-                "units": "kB=1; energy units set by the recorded fixed couplings",
-                "rng": "mt19937_64 with std::uniform_real_distribution",
-                "platform": platform.platform(),
-                "python": sys.version,
-                "binary_sha256": sha256(binary),
-                "adaptation": "Every 50 burn-in sweeps: acceptance <0.4 shrinks step by 10%; >0.6 grows it by 10%; clamp [1e-4,100]",
-                "adaptation_stop_sweep": sampling["adaptation_sweeps"],
-                "command": sys.argv,
-            }
+        # Save the inputs and the environment used for this attempt.
+        write_metadata(output_directory, metadata)
+        (output_directory / "config.resolved.toml").write_bytes(config_bytes)
+        metadata["N"] = model["L"] ** 3
+        metadata["units"] = "kB=1; energy units set by the recorded fixed couplings"
+        metadata["rng"] = "mt19937_64 with std::uniform_real_distribution"
+        metadata["platform"] = platform.platform()
+        metadata["python"] = sys.version
+        metadata["binary_sha256"] = sha256(binary_path)
+        metadata["adaptation"] = (
+            "Every 50 burn-in sweeps: acceptance <0.4 shrinks step by 10%; "
+            ">0.6 grows it by 10%; clamp [1e-4,100]"
         )
-        meta["source_id"], meta["source_files"] = archive_sources(folder)
-        meta["build_info"] = subprocess.check_output(
-            [str(binary), "--build-info"], text=True
-        ).strip()
-        # The source archive records files at launch. Rebuild after editing C++.
-        meta["source_note"] = (
+        metadata["adaptation_stop_sweep"] = sampling["adaptation_sweeps"]
+        metadata["command"] = sys.argv
+
+        source_id, source_checksums = archive_sources(output_directory)
+        metadata["source_id"] = source_id
+        metadata["source_files"] = source_checksums
+        build_info = subprocess.check_output(
+            [str(binary_path), "--build-info"], text=True
+        )
+        metadata["build_info"] = build_info.strip()
+        # The archive captures files at launch, so rebuild after changing C++.
+        metadata["source_note"] = (
             "Source snapshot at launch; compiled-source equality is not checked"
         )
-        compile_commands = binary.parent / "compile_commands.json"
-        if compile_commands.exists():
-            meta["compile_commands"] = json.loads(compile_commands.read_text())
-        args = [
+        compile_commands_path = binary_path.parent / "compile_commands.json"
+        if compile_commands_path.exists():
+            compile_commands_text = compile_commands_path.read_text()
+            metadata["compile_commands"] = json.loads(compile_commands_text)
+
+        # The order here must match argv[1] through argv[13] in C++ main().
+        simulator_arguments = [
             model["L"],
             model["temperature"],
             model["J"],
@@ -259,66 +334,90 @@ def run(config_path, binary):
             sampling["equilibration_sweeps"],
             sampling["measurement_sweeps"],
             sampling["measure_every_sweeps"],
-            folder,
+            output_directory,
         ]
-        meta["simulator_arguments"] = list(map(str, args))
-        write_metadata(folder, meta)
-        with (
-            (folder / "stdout.log").open("w") as stdout,
-            (folder / "stderr.log").open("w") as stderr,
-        ):
+        # Command-line arguments must be strings, even for numeric parameters.
+        argument_strings = []
+        for argument in simulator_arguments:
+            argument_strings.append(str(argument))
+        metadata["simulator_arguments"] = argument_strings
+        write_metadata(output_directory, metadata)
+
+        # Launch C++. Keep its summary and any error messages in separate logs.
+        command = [str(binary_path)] + argument_strings
+        stdout_path = output_directory / "stdout.log"
+        stderr_path = output_directory / "stderr.log"
+        with stdout_path.open("w") as stdout_file, stderr_path.open("w") as stderr_file:
             result = subprocess.run(
-                [str(binary), *map(str, args)],
-                stdout=stdout,
-                stderr=stderr,
-                check=False,
+                command, stdout=stdout_file, stderr=stderr_file, check=False
             )
-        meta["exit_code"] = result.returncode
-        if result.returncode:
+        metadata["exit_code"] = result.returncode
+        if result.returncode != 0:
             raise RuntimeError(f"Simulator exited {result.returncode}; see stderr.log")
-        meta.update(json.loads((folder / "stdout.log").read_text()))
-        if meta["sample_count"] != validate_outputs(folder, config):
-            raise ValueError("Simulator sample count differs from CSV")
-        meta["output_hashes"] = {
-            name: sha256(folder / name)
-            for name in (
-                "measurements.csv",
-                "equilibration.csv",
-                "config.resolved.toml",
-                "source.zip",
-            )
-        }
-        meta["status"] = "SUCCESS"
-        meta["finished_utc"] = utc()
-        write_metadata(folder, meta)
-        (folder / "SUCCESS").write_text(
+
+        # C++ writes measurement_count and final_step_size as JSON to stdout.
+        simulator_summary = json.loads(stdout_path.read_text())
+        metadata.update(simulator_summary)
+        measurement_count = validate_outputs(output_directory, config)
+        if metadata["measurement_count"] != measurement_count:
+            raise ValueError("Simulator measurement count differs from CSV")
+
+        # Record file checksums so analysis can detect changed or damaged output.
+        output_hashes = {}
+        for filename in (
+            "measurements.csv",
+            "equilibration.csv",
+            "config.resolved.toml",
+            "source.zip",
+        ):
+            output_hashes[filename] = sha256(output_directory / filename)
+        metadata["output_hashes"] = output_hashes
+        metadata["status"] = "SUCCESS"
+        metadata["finished_utc"] = utc()
+        write_metadata(output_directory, metadata)
+        (output_directory / "SUCCESS").write_text(
             "Operational completion; equilibrium not established.\n"
         )
-    except BaseException as exc:
-        # KeyboardInterrupt also leaves an explicit failed-attempt record.
-        meta.update(
-            status="FAIL", finished_utc=utc(), error=f"{type(exc).__name__}: {exc}"
-        )
-        write_metadata(folder, meta)
-        (folder / "FAIL").write_text(meta["error"] + "\n")
+    except BaseException as error:
+        # Include keyboard interruptions: preserve an explicit failed-attempt record.
+        metadata["status"] = "FAIL"
+        metadata["finished_utc"] = utc()
+        metadata["error"] = f"{type(error).__name__}: {error}"
+        write_metadata(output_directory, metadata)
+        (output_directory / "FAIL").write_text(metadata["error"] + "\n")
         raise
-    return folder
+
+    return output_directory
+
+
+def main():
+    """Read command-line options and either validate or launch one simulation."""
+    if sys.platform == "win32":
+        default_binary = REPO / "build/local-debug/phi4.exe"
+    else:
+        default_binary = REPO / "build/local-debug/phi4"
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("config", type=Path, help="Path to the TOML configuration")
+    parser.add_argument(
+        "--binary", type=Path, default=default_binary, help="Path to the C++ executable"
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Check the config without running C++",
+    )
+    arguments = parser.parse_args()
+
+    if arguments.validate_only:
+        config_text = arguments.config.read_text(encoding="utf-8")
+        config = tomllib.loads(config_text)
+        validate(config)
+        print("Configuration valid; no simulation executed")
+    else:
+        output_directory = run(arguments.config, arguments.binary)
+        print(output_directory)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("config", type=Path)
-    parser.add_argument(
-        "--binary",
-        type=Path,
-        default=REPO / "build/local-debug/phi4.exe"
-        if sys.platform == "win32"
-        else REPO / "build/local-debug/phi4",
-    )
-    parser.add_argument("--validate-only", action="store_true")
-    args = parser.parse_args()
-    if args.validate_only:
-        validate(tomllib.loads(args.config.read_text(encoding="utf-8")))
-        print("Configuration valid; no simulation executed")
-    else:
-        print(run(args.config, args.binary))
+    main()

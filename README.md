@@ -60,4 +60,4 @@ out of Git.
 
 ## AI assistance
 
-Codex was used to asssit with implementation/debugging. 
+Codex was used to assist with implementation/debugging. 

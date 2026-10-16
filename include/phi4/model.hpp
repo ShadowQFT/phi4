@@ -81,9 +81,10 @@ inline double delta_energy(const Lattice &lattice, const Model &model, std::size
            onsite(current, model);
 }
 
-inline bool accept(double delta_h, double temperature, double uniform) {
+// random_number is a draw from the uniform distribution on [0,1).
+inline bool accept(double delta_h, double temperature, double random_number) {
     if (!std::isfinite(delta_h) || !std::isfinite(temperature) || temperature <= 0 ||
-        !(uniform >= 0 && uniform < 1)) {
+        !(random_number >= 0 && random_number < 1)) {
         throw std::runtime_error("Invalid acceptance inputs");
     }
     // Downhill moves are always accepted. Uphill moves use the Boltzmann probability.
@@ -91,6 +92,6 @@ inline bool accept(double delta_h, double temperature, double uniform) {
         return true;
     }
     const double probability = std::exp(-delta_h / temperature);
-    return uniform < probability;
+    return random_number < probability;
 }
 } // namespace phi4

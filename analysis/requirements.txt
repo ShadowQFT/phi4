@@ -1,0 +1,3 @@
+# Tested analysis runtime; install in a project virtual environment if needed.
+numpy==2.2.2
+matplotlib==3.11.1

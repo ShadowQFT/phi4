@@ -1,0 +1,20 @@
+# Site placeholders; verify live before use. Never submit this file as-is.
+schema_version = 1
+status = "unverified"
+[remote]
+host = "mill.mst.edu"
+user = "REPLACE_WITH_SSO_ID"
+source_root = "$HOME/phi4/releases"
+build_root = "$HOME/phi4/builds"
+raw_root = "/share/ceph/scratch/$USER/phi4/raw"
+durable_results_root = "$HOME/phi4/results"
+log_root = "$HOME/phi4/logs"
+[scheduler]
+partition = "VERIFY_PARTITION"
+account = "VERIFY_IF_REQUIRED"
+compiler_module = "VERIFY_AVAILABLE_MODULE"
+ntasks = 1
+cpus_per_task = 1
+walltime = "SET_FROM_BENCHMARK"
+memory = "SET_FROM_BENCHMARK"
+array_concurrency = 0 # unset; submission must fail

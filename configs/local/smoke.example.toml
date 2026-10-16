@@ -1,0 +1,24 @@
+# Tiny operational validation input; not a scientific production run.
+schema_version = 1
+[model]
+name = "clean_phi4_3d"
+L = 4
+temperature = 1.0 # operational smoke value, not Tc
+J = 1.0
+r = -1.0
+u = 1.0
+boundary = "periodic"
+[sampling]
+start = "disordered"
+seed = 5409001
+update_order = "sequential"
+step_size = 1.0
+adaptation_sweeps = 0
+equilibration_sweeps = 100
+measurement_sweeps = 100
+measure_every_sweeps = 1
+[output]
+campaign = "local-smoke"
+run_id = "L4-T1-disordered-seed5409001-attempt01"
+root = "data/raw"
+save_time_series = true

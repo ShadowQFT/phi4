@@ -1,0 +1,9 @@
+target-version = "py311"
+line-length = 88
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[lint.per-file-ignores]
+# Tests bootstrap the repository-local package before importing it.
+"tests/python/*.py" = ["E402"]

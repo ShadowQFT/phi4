@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "local-debug",
+      "displayName": "Local Debug (Ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/local-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "local-release",
+      "displayName": "Local Release (Ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/local-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "local-debug",
+      "configurePreset": "local-debug"
+    },
+    {
+      "name": "local-release",
+      "configurePreset": "local-release"
+    }
+  ]
+}

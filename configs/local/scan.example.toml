@@ -1,0 +1,29 @@
+# Example only. Running this file launches a local continuation scan.
+schema_version = 1
+[model]
+name = "clean_phi4_3d"
+L = 4
+temperature = 30.0
+J = 1.0
+r = -1.0
+u = 1.0
+boundary = "periodic"
+[sampling]
+start = "random" # hot start: begin at the highest temperature and cool
+seed = 5409101
+update_order = "sequential"
+step_size = 1.0
+adaptation_sweeps = 1000
+equilibration_sweeps = 2000
+measurement_sweeps = 5000
+measure_every_sweeps = 1
+[output]
+campaign = "temperature-pilot"
+run_id = "L4-cooling-seed5409101-attempt01"
+root = "data/raw"
+save_time_series = true
+[scan]
+# Optional size list: sizes = [4, 6, 8]. model.L must match the first entry.
+# Broad exploratory range, not an estimate or bracket of the critical temperature.
+# For heating: choose an ordered start and reverse this list; update model.temperature.
+temperatures = [30.0, 25.0, 20.0, 15.0, 10.0, 5.0, 1.0]

@@ -21,6 +21,19 @@ class Statistics(unittest.TestCase):
         with self.assertRaises(ValueError):
             observables([0, 0], [0, 0], 27, 1)
 
+    def test_normalized_binder_limits(self):
+        # Fixed |m| gives <m^4> = <m^2>^2: the ideal ordered limit.
+        ordered = observables([0, 0], [-2, 2], 27, 1)
+        self.assertAlmostEqual(ordered["binder"], 1)
+        # This discrete distribution has the exact Gaussian moment ratio 3.
+        magnetization = [-(3**0.5), 0, 0, 0, 0, 3**0.5]
+        gaussian_moments = observables([0] * 6, magnetization, 27, 1)
+        self.assertAlmostEqual(gaussian_moments["B4"], 3)
+        self.assertAlmostEqual(gaussian_moments["binder"], 0)
+        # Do not clip finite-sample values to [0, 1].
+        sparse = observables([0] * 20, [0] * 19 + [1], 27, 1)
+        self.assertAlmostEqual(sparse["binder"], -8.5)
+
     def test_invalid_and_extreme_inputs(self):
         with self.assertRaises(ValueError):
             observables([1, 2], [1, 2], 27, True)
@@ -43,6 +56,21 @@ class Statistics(unittest.TestCase):
         self.assertAlmostEqual(
             result["standard_error"]["B4"], np.sqrt(19 * np.var(deleted))
         )
+
+    def test_binder_resampling(self):
+        magnetization = np.linspace(-2, 3, 400)
+        energy = magnetization**2
+        jackknife = block_jackknife(energy, magnetization, 64, 3, 10)
+        self.assertAlmostEqual(
+            jackknife["standard_error"]["binder"],
+            jackknife["standard_error"]["B4"] / 2,
+        )
+        bootstrap = block_bootstrap(
+            energy, magnetization, 64, 3, 10, seed=17, replicates=100
+        )
+        intervals = bootstrap["percentile_interval_95"]
+        self.assertAlmostEqual(intervals["binder"][0], (3 - intervals["B4"][1]) / 2)
+        self.assertAlmostEqual(intervals["binder"][1], (3 - intervals["B4"][0]) / 2)
 
     def test_correlated_variance_inflation(self):
         rng = np.random.default_rng(912)

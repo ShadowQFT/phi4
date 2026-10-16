@@ -13,10 +13,13 @@ From PowerShell in the repository:
 cmake --preset local-debug
 ```
 
-Rebuild after editing C++; the launcher no longer checks compiled-source
-fingerprints. The project creates the sampler and five validation suites. Use `cmake --build --preset local-debug`, then
-`ctest --test-dir build/local-debug --output-on-failure` after real tests
-are registered. Empty CTest output is not validation.
+Rebuild after editing C++; the launcher does not check compiled-source
+fingerprints. Build and run the six validation suites:
+
+```powershell
+cmake --build --preset local-debug
+ctest --test-dir build/local-debug --output-on-failure
+```
 
 If a new terminal cannot find the tools, check PATH for the installed
 MinGW64 bin directory. Do not mix MSYS and MinGW compilers/libraries.
@@ -24,23 +27,54 @@ Keep Windows executables and Linux cluster executables in separate build
 directories. CMake presets are portable; machine overrides belong in
 ignored `CMakeUserPresets.json`.
 
-## Python analysis environment (later)
+## macOS
 
-Create a project virtual environment, without changing system Python:
+Requires a C++17 compiler (Apple Clang is suitable), CMake 3.21+, Ninja, and
+Python 3.11 or newer. The dependency versions were tested with Python 3.13 on
+Windows; macOS has not been tested here. Use Python 3.13 for the same Python
+version as that environment. If the compiler is missing, install Apple's
+command-line tools with `xcode-select --install`.
+
+From the repository directory, create a Python environment, install the analysis
+dependencies, and configure CMake to use that environment's interpreter:
+
+```sh
+python3.13 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r analysis/requirements.txt
+cmake --preset local-release -DPython3_EXECUTABLE="$PWD/.venv/bin/python"
+cmake --build --preset local-release
+ctest --test-dir build/local-release --output-on-failure
+```
+
+The executable is build/local-release/phi4, without the Windows .exe suffix.
+The class-demo spec contains the L=4, 8, 16 cooling scan used for the first plots:
+
+```sh
+python scripts/run.py configs/local/class-demo.toml --validate-only
+python scripts/run.py configs/local/class-demo.toml --binary build/local-release/phi4
+python scripts/plot_scan.py data/raw/testing/first-run --output results/figures/first-run --block-size 100
+```
+
+The second command runs the simulation. A retry needs a new run_id, and plotting
+needs a new output directory if one already exists. Windows executables and
+build caches are not portable; compile a fresh executable on the Mac. Library
+random distributions can differ across toolchains, so equal seeds need not
+produce identical Windows and macOS trajectories.
+
+## Python environment on Windows
+
+Use a project virtual environment if needed:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip --version
+.\.venv\Scripts\python.exe -m pip install -r analysis/requirements.txt
 ```
 
-Python's [venv documentation](https://docs.python.org/3/library/venv.html)
-describes the environment layout. Calling its interpreter directly avoids
-needing to change PowerShell activation policy.
-Planned packages: NumPy, SciPy, Matplotlib, pytest, and Ruff. Select/install
-and record compatible versions during implementation; no package install
-or reproducibility lock has been performed in the scaffold stage.
-Analysis should accept paths and run without notebook state. Notebooks
-can explain results but must call the same tested analysis functions.
+Calling its interpreter directly avoids changing PowerShell activation policy.
+NumPy and Matplotlib are used for analysis; the launcher itself uses Python's
+standard library. Generated data, figures, and build directories are ignored by
+Git. Personal specs ending in .local.toml are also ignored.
 
 ## Mill and build policy
 

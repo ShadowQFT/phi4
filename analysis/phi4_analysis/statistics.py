@@ -9,6 +9,7 @@ NAMES = (
     "m2",
     "m4",
     "B4",
+    "binder",
     "chi_abs",
     "chi_signed",
     "heat_capacity_per_site",
@@ -44,7 +45,9 @@ def _observables_from_moments(moments, N, T):
 
     # Form the Binder ratio after averaging; preserve the distinct susceptibilities.
     with np.errstate(over="raise", invalid="raise", divide="raise"):
-        binder = mean_m4 / mean_m2**2
+        moment_ratio = mean_m4 / mean_m2**2
+        # Normalized scalar Binder cumulant: ordered limit 1, Gaussian limit 0.
+        binder = (3.0 - moment_ratio) / 2.0
         chi_abs = (N / T) * (mean_m2 - mean_abs_m**2)
         chi_signed = (N / T) * (mean_m2 - mean_m**2)
         heat_capacity = (N / T / T) * (mean_e2 - mean_e**2)
@@ -56,6 +59,7 @@ def _observables_from_moments(moments, N, T):
             mean_abs_m,
             mean_m2,
             mean_m4,
+            moment_ratio,
             binder,
             chi_abs,
             chi_signed,

@@ -59,7 +59,10 @@ def check_integer(value, name, minimum, maximum=10**9):
 def validate(config):
     """Check the configuration before creating files or starting the simulator."""
     # Check the section names before accessing their contents.
-    check_keys(config, ["schema_version", "model", "sampling", "output"], "root")
+    expected_sections = ["schema_version", "model", "sampling", "output"]
+    if "scan" in config:
+        expected_sections.append("scan")
+    check_keys(config, expected_sections, "root")
     if type(config["schema_version"]) is not int or config["schema_version"] != 1:
         raise ValueError("schema_version must be 1")
 
@@ -147,7 +150,55 @@ def validate(config):
     resolved_output_root = (REPO / output_root).resolve()
     if not resolved_output_root.is_relative_to(REPO):
         raise ValueError("output.root escapes the repository")
+    if "scan" in config:
+        validate_scan(config)
     return config
+
+
+def validate_scan(config):
+    """Require a temperature ladder in the direction of the chosen start."""
+    scan = config["scan"]
+    expected_keys = ["temperatures"]
+    if "sizes" in scan:
+        expected_keys.append("sizes")
+    check_keys(scan, expected_keys, "scan")
+    sizes = scan.get("sizes", [config["model"]["L"]])
+    if not isinstance(sizes, list) or len(sizes) == 0:
+        raise ValueError("scan.sizes must be a nonempty list")
+    seen_sizes = []
+    for size in sizes:
+        check_integer(size, "scan size", 3, 512)
+        if size in seen_sizes:
+            raise ValueError("scan.sizes must not contain duplicates")
+        seen_sizes.append(size)
+    if sizes[0] != config["model"]["L"]:
+        raise ValueError("model.L must equal the first scan size")
+    # Give each size a distinct recorded seed without exceeding the C++ seed type.
+    check_integer(
+        config["sampling"]["seed"] + len(sizes) - 1, "last size seed", 0, 2**64 - 1
+    )
+    temperatures = scan["temperatures"]
+    if not isinstance(temperatures, list) or len(temperatures) == 0:
+        raise ValueError("scan.temperatures must contain at least one temperature")
+    for temperature in temperatures:
+        check_number(temperature, "scan temperature")
+        if temperature <= 0:
+            raise ValueError("Scan temperatures must be positive")
+    if temperatures[0] != config["model"]["temperature"]:
+        raise ValueError("model.temperature must equal the first scan temperature")
+    for index in range(1, len(temperatures)):
+        previous_temperature = temperatures[index - 1]
+        current_temperature = temperatures[index]
+        if config["sampling"]["start"] == "random":
+            if current_temperature >= previous_temperature:
+                raise ValueError(
+                    "A random hot start must scan from high to low temperature"
+                )
+        else:
+            if current_temperature <= previous_temperature:
+                raise ValueError(
+                    "An ordered start must scan from low to high temperature"
+                )
 
 
 def source_snapshot():
@@ -320,56 +371,141 @@ def run(config_path, binary):
             compile_commands_text = compile_commands_path.read_text()
             metadata["compile_commands"] = json.loads(compile_commands_text)
 
-        # The order here must match argv[1] through argv[13] in C++ main().
-        simulator_arguments = [
-            model["L"],
-            model["temperature"],
-            model["J"],
-            model["r"],
-            model["u"],
-            sampling["seed"],
-            sampling["start"],
-            sampling["step_size"],
-            sampling["adaptation_sweeps"],
-            sampling["equilibration_sweeps"],
-            sampling["measurement_sweeps"],
-            sampling["measure_every_sweeps"],
-            output_directory,
-        ]
-        # Command-line arguments must be strings, even for numeric parameters.
-        argument_strings = []
-        for argument in simulator_arguments:
-            argument_strings.append(str(argument))
-        metadata["simulator_arguments"] = argument_strings
-        write_metadata(output_directory, metadata)
-
-        # Launch C++. Keep its summary and any error messages in separate logs.
-        command = [str(binary_path)] + argument_strings
-        stdout_path = output_directory / "stdout.log"
-        stderr_path = output_directory / "stderr.log"
-        with stdout_path.open("w") as stdout_file, stderr_path.open("w") as stderr_file:
-            result = subprocess.run(
-                command, stdout=stdout_file, stderr=stderr_file, check=False
+        # Each size is a separate C++ process with its own lattice and RNG.
+        sizes = [model["L"]]
+        if "scan" in config:
+            sizes = config["scan"].get("sizes", sizes)
+            temperature_path = output_directory / "temperatures.txt"
+            with temperature_path.open("w") as temperature_file:
+                for temperature in config["scan"]["temperatures"]:
+                    temperature_file.write(str(temperature) + "\n")
+            metadata.pop("N")
+            metadata["scan_outputs"] = []
+            metadata["size_outputs"] = []
+            metadata["scan_note"] = (
+                "Each size starts a fresh lattice and RNG, with seed = base seed + size index. "
+                "Within each size, fields, RNG, and step size continue between temperatures. "
+                "Adaptation and settling repeat at every temperature. "
+                "Temperatures within a size share a history."
             )
-        metadata["exit_code"] = result.returncode
-        if result.returncode != 0:
-            raise RuntimeError(f"Simulator exited {result.returncode}; see stderr.log")
 
-        # C++ writes measurement_count and final_step_size as JSON to stdout.
-        simulator_summary = json.loads(stdout_path.read_text())
-        metadata.update(simulator_summary)
-        measurement_count = validate_outputs(output_directory, config)
-        if metadata["measurement_count"] != measurement_count:
-            raise ValueError("Simulator measurement count differs from CSV")
+        for size_index in range(len(sizes)):
+            size = sizes[size_index]
+            seed = sampling["seed"] + size_index
+            simulation_directory = output_directory
+            size_record = None
+            if "scan" in config:
+                simulation_directory = output_directory / ("L" + str(size))
+                simulation_directory.mkdir(exist_ok=False)
+                size_record = {
+                    "L": size,
+                    "N": size**3,
+                    "seed": seed,
+                    "directory": simulation_directory.name,
+                    "status": "RUNNING",
+                }
+                metadata["size_outputs"].append(size_record)
+
+            # Argument order matches argv[1] through argv[13] in C++ main().
+            simulator_arguments = [
+                size,
+                model["temperature"],
+                model["J"],
+                model["r"],
+                model["u"],
+                seed,
+                sampling["start"],
+                sampling["step_size"],
+                sampling["adaptation_sweeps"],
+                sampling["equilibration_sweeps"],
+                sampling["measurement_sweeps"],
+                sampling["measure_every_sweeps"],
+                simulation_directory,
+            ]
+            if "scan" in config:
+                simulator_arguments.append(temperature_path)
+            argument_strings = []
+            for argument in simulator_arguments:
+                argument_strings.append(str(argument))
+            if size_record is None:
+                metadata["simulator_arguments"] = argument_strings
+            else:
+                size_record["simulator_arguments"] = argument_strings
+            write_metadata(output_directory, metadata)
+
+            # Each size has its own logs so failures can be traced to that size.
+            command = [str(binary_path)] + argument_strings
+            stdout_path = simulation_directory / "stdout.log"
+            stderr_path = simulation_directory / "stderr.log"
+            with (
+                stdout_path.open("w") as stdout_file,
+                stderr_path.open("w") as stderr_file,
+            ):
+                result = subprocess.run(
+                    command, stdout=stdout_file, stderr=stderr_file, check=False
+                )
+            metadata["exit_code"] = result.returncode
+            if size_record is not None:
+                size_record["exit_code"] = result.returncode
+            if result.returncode != 0:
+                if size_record is not None:
+                    size_record["status"] = "FAIL"
+                raise RuntimeError(
+                    f"Simulator exited {result.returncode}; see {stderr_path}"
+                )
+
+            if "scan" in config:
+                summary_lines = stdout_path.read_text().splitlines()
+                temperatures = config["scan"]["temperatures"]
+                if len(summary_lines) != len(temperatures):
+                    raise ValueError(
+                        "Simulator returned the wrong number of temperatures"
+                    )
+                for index in range(len(temperatures)):
+                    point = json.loads(summary_lines[index])
+                    point_directory = simulation_directory / (
+                        "temperature_" + str(index)
+                    )
+                    measurement_count = validate_outputs(point_directory, config)
+                    if point["measurement_count"] != measurement_count:
+                        raise ValueError("Simulator measurement count differs from CSV")
+                    point["L"] = size
+                    point["N"] = size**3
+                    point["seed"] = seed
+                    point["temperature"] = temperatures[index]
+                    point["directory"] = point_directory.relative_to(
+                        output_directory
+                    ).as_posix()
+                    metadata["scan_outputs"].append(point)
+                size_record["status"] = "SUCCESS"
+                write_metadata(output_directory, metadata)
+            else:
+                simulator_summary = json.loads(stdout_path.read_text())
+                metadata.update(simulator_summary)
+                measurement_count = validate_outputs(output_directory, config)
+                if metadata["measurement_count"] != measurement_count:
+                    raise ValueError("Simulator measurement count differs from CSV")
 
         # Record file checksums so analysis can detect changed or damaged output.
         output_hashes = {}
-        for filename in (
-            "measurements.csv",
-            "equilibration.csv",
-            "config.resolved.toml",
-            "source.zip",
-        ):
+        output_files = ["config.resolved.toml", "source.zip"]
+        if "scan" in config:
+            output_files.append("temperatures.txt")
+            for size_record in metadata["size_outputs"]:
+                output_files.append(size_record["directory"] + "/stdout.log")
+                output_files.append(size_record["directory"] + "/stderr.log")
+            for temperature_output in metadata["scan_outputs"]:
+                directory_name = temperature_output["directory"]
+                for filename in (
+                    "measurements.csv",
+                    "equilibration.csv",
+                    "initial_field.txt",
+                    "final_field.txt",
+                ):
+                    output_files.append(directory_name + "/" + filename)
+        else:
+            output_files.extend(["measurements.csv", "equilibration.csv"])
+        for filename in output_files:
             output_hashes[filename] = sha256(output_directory / filename)
         metadata["output_hashes"] = output_hashes
         metadata["status"] = "SUCCESS"
@@ -381,6 +517,9 @@ def run(config_path, binary):
     except BaseException as error:
         # Include keyboard interruptions: preserve an explicit failed-attempt record.
         metadata["status"] = "FAIL"
+        for size_record in metadata.get("size_outputs", []):
+            if size_record["status"] == "RUNNING":
+                size_record["status"] = "FAIL"
         metadata["finished_utc"] = utc()
         metadata["error"] = f"{type(error).__name__}: {error}"
         write_metadata(output_directory, metadata)

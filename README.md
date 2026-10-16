@@ -12,9 +12,9 @@ The [proposal](proposal/phi4_proposal.tex) describes the project.
 
 The sampler, configuration files, and basic analysis scripts are working.
 The tests cover energy calculations, Metropolis acceptance, the noninteracting
-field distribution, and statistical error estimates. Temperature scans and
-finite-size-scaling fits are still to come; there are no measured critical
-exponents yet.
+field distribution, statistical error estimates, and temperature continuation.
+Temperature scans and preliminary plots are implemented; finite-size-scaling
+fits are still to come. There are no measured critical exponents yet.
 
 The model uses periodic boundaries and the Hamiltonian
 
@@ -43,6 +43,8 @@ To check the example configuration without running a simulation:
 python scripts/run.py configs/local/smoke.example.toml --validate-only
 ```
 
+See [macOS setup](docs/DEVELOPMENT.md#macos) for building and running on a Mac.
+The [class-demo spec](configs/local/class-demo.toml) runs sizes 4, 8, and 16.
 See [analysis notes](docs/ANALYSIS.md) for working with saved runs.
 
 ## Code and notes
@@ -50,6 +52,7 @@ See [analysis notes](docs/ANALYSIS.md) for working with saved runs.
 - [Code walkthrough](docs/CODE.md): where the main calculations happen.
 - [Model definitions](docs/PHYSICS.md): Hamiltonian and observables.
 - [Monte Carlo](docs/MONTE_CARLO.md): updates, burn-in, and measurements.
+- [Temperature scans](docs/SCANS.md): heating, cooling, and preliminary plots.
 - [Statistics](docs/STATISTICS.md): blocking and uncertainty estimates.
 - [Project status](docs/STATUS.md): what works and what is next.
 

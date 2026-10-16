@@ -7,7 +7,7 @@ __pycache__/
 .coverage
 htmlcov/
 CMakeUserPresets.json
-configs/*.local.toml
+configs/**/*.local.toml
 .env
 .env.*
 *.pem

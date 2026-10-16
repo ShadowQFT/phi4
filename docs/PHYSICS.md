@@ -55,7 +55,8 @@ Measure m = sum(phi_i)/N and e = H/N. Define ensemble averages after burn-in:
 
 ```text
 B4 = <m^4> / <m^2>^2
-U4 = 1 - B4/3  (only for explicitly labeled comparisons)
+U4 = 1 - B4/3
+binder = (3/2) U4 = (3 - B4)/2  (normalized cumulant used in plots)
 chi_abs = (N/T) [<m^2> - <|m|>^2]
 chi_signed = (N/T) [<m^2> - <m>^2]
 heat_capacity_per_site = (N/T^2) [<e^2> - <e>^2].
@@ -66,7 +67,9 @@ it is not identical to the signed fluctuation-response susceptibility.
 Never interchange their labels or fit data without recording which was used.
 B4 approaches 1 for a sharply bimodal ordered distribution and 3 for a
 centered Gaussian distribution. These are limiting checks, not exact values
-at finite L and T. Compute ratios from averaged moments, not by averaging
+at finite L and T. The normalized binder therefore approaches 1 in the ordered
+limit and 0 in the Gaussian limit. Finite-sample values are not clipped.
+Compute ratios from averaged moments, not by averaging
 m^4/m^2^2 sample by sample. Reject undefined or numerically unstable moments.
 
 ## Scaling expectations

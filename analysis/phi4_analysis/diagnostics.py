@@ -39,7 +39,7 @@ def split_history(energy, magnetization, N, T, block_size):
     # A raw difference is descriptive; no independence-based z-test is implied.
     difference = {
         key: halves[1]["observables"][key] - halves[0]["observables"][key]
-        for key in ("e", "abs_m", "m2", "m4", "B4")
+        for key in ("e", "abs_m", "m2", "m4", "B4", "binder")
     }
     return {
         "halves": halves,
@@ -133,7 +133,7 @@ def plot_diagnostics(runs, results, output, analysis_id):
         label = (
             f"{run.config['sampling']['start']}, seed {run.config['sampling']['seed']}"
         )
-        for axis, name in zip(axes.flat, ("e", "abs_m", "m2", "B4")):
+        for axis, name in zip(axes.flat, ("e", "abs_m", "m2", "binder")):
             axis.plot(
                 [point["block_size"] for point in curve],
                 [point["standard_error"][name] for point in curve],

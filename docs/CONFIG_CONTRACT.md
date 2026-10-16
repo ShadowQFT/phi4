@@ -32,3 +32,8 @@ Site settings in `configs/mill.example.toml` are separate from physics.
 Put private resolved settings in ignored `configs/mill.local.toml`.
 Scheduler placeholders must fail preflight; they must never silently use
 a fabricated account, queue, module, or resource allocation.
+
+An optional [scan] section contains an explicit temperatures list and an optional
+sizes list. model.L matches the first size; sizes use base seed plus size index. The first
+entry matches model.temperature; random starts cool and ordered starts heat.
+See [Temperature scans](SCANS.md) for the configuration and output layout.

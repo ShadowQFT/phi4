@@ -32,15 +32,16 @@ The start names describe the initial field configuration, not quenched disorder.
 `random` draws each field independently; `ordered_positive` and
 `ordered_negative` keep the two signs of the uniform ordered state distinct.
 
-The planned temperature scan uses these directions:
+Temperature scans use these directions:
+
 - A hot start uses `random` at the highest temperature and scans downward.
 - An ordered start uses either ordered sign at the lowest temperature and scans
   upward.
 
-Each scan will carry the final lattice configuration to the next temperature,
+Each scan carries the final lattice configuration to the next temperature,
 with burn-in at each temperature before measurements. Temperatures within a scan
-share a history; they are not independent chains. The current runner still
-simulates one temperature per invocation; continuation scans are not implemented.
+share a history; they are not independent chains. See [Temperature scans](SCANS.md)
+for configuration and plotting instructions.
 
 During burn-in only, tune step_size at fixed intervals using a bounded rule
 targeting approximately 40-60% acceptance. Every 50 sweeps, multiply the

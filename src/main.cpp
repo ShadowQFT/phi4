@@ -1,9 +1,11 @@
 #include "phi4/sampler.hpp"
 
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace {
 using SweepCount = unsigned long long;
@@ -107,6 +109,63 @@ void run_chain(phi4::Sampler &sampler, const SweepCounts &sweeps,
     std::cout << std::setprecision(17) << "{\"measurement_count\":" << measurement_count
               << ",\"final_step_size\":" << sampler.step_size << "}\n";
 }
+// Save the field at temperature boundaries so continuation can be inspected.
+void write_field(const phi4::Sampler &sampler, const std::string &path) {
+    std::ofstream output_file(path);
+    output_file.exceptions(std::ios::failbit | std::ios::badbit);
+    output_file << std::setprecision(17);
+    for (double field : sampler.lattice.field) {
+        output_file << field << '\n';
+    }
+    output_file.close();
+}
+
+void run_temperature_scan(phi4::Sampler &sampler, const SweepCounts &sweeps,
+                          const std::string &output_directory,
+                          const std::string &temperature_file_path) {
+    // Read the whole ladder before running anything. Python sets its direction.
+    std::ifstream temperature_file(temperature_file_path);
+    if (!temperature_file) {
+        throw std::invalid_argument("Cannot open temperature file");
+    }
+
+    std::vector<double> temperatures;
+    double temperature;
+
+    // validate temperatures
+    while (temperature_file >> temperature) {
+        if (!std::isfinite(temperature) || temperature <= 0) {
+            throw std::invalid_argument("Scan temperatures must be finite and positive");
+        }
+        temperatures.push_back(temperature);
+    }
+    if (!temperature_file.eof() || temperatures.empty()) {
+        throw std::invalid_argument("Require at least one valid scan temperature");
+    }
+
+    // Run the simulation for each temperature in the ladder
+    for (std::size_t index = 0; index < temperatures.size(); ++index) {
+        // set current temp
+        sampler.temperature = temperatures[index];
+
+        // create output directory for this temperature
+        const std::string temperature_directory =
+            output_directory + "/temperature_" + std::to_string(index);
+        if (!std::filesystem::create_directory(temperature_directory)) {
+            throw std::runtime_error("Temperature output directory already exists");
+        }
+
+        // write initial field to file
+        write_field(sampler, temperature_directory + "/initial_field.txt");
+
+        // run simulation
+        run_chain(sampler, sweeps, temperature_directory);
+
+        // write final field to file
+        write_field(sampler, temperature_directory + "/final_field.txt");
+
+    }
+}
 } // namespace
 
 // Public entry point: scripts/run.py validates TOML before calling this program.
@@ -117,7 +176,7 @@ int main(int argc, char **argv) {
                       << '\n';
             return 0;
         }
-        if (argc != 14) {
+        if (argc != 14 && argc != 15) {
             throw std::invalid_argument("Use scripts/run.py CONFIG --binary PATH");
         }
 
@@ -146,7 +205,11 @@ int main(int argc, char **argv) {
 
         // Validate sweep counts and run
         validate_counts(sweeps);
-        run_chain(sampler, sweeps, output_path);
+        if (argc == 15) {
+            run_temperature_scan(sampler, sweeps, output_path, argv[14]);
+        } else {
+            run_chain(sampler, sweeps, output_path);
+        }
 
     } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';

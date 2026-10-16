@@ -57,3 +57,12 @@ reduction code identity, package environment, block/bootstrap settings,
 Tc treatment, fits, and command. Every figure/table points to an analysis
 ID and is reproducible from raw data. Do not commit large/private raw runs
 into Git; keep small public synthetic fixtures under tests/fixtures instead.
+
+## Size and temperature scans
+
+New scans store each point under run-id/L<size>/temperature_<index>/.
+Each size has separate stdout.log and stderr.log files and starts a fresh lattice
+with seed = base seed + size index. Root metadata records size_outputs and
+scan_outputs, including each point's L, N, seed, temperature, and relative path.
+Only temperatures within a size share a continuing configuration and RNG.
+Existing raw layouts remain unchanged; plotting reads their recorded paths.

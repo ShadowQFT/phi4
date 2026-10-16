@@ -31,8 +31,9 @@ adaptation sweeps, acceptance below 40% shrinks the step by 10%; above 60%
 increases it by 10%. The step is then frozen for settling and measurement.
 
 Saved measurements contain e=H/N and m=sum(phi)/N, along with their sweep
-numbers. The full field configuration is not saved, so spatial correlations
-cannot be reconstructed from these files. Restart checkpoints are not
+numbers. Scans also save the fields at the beginning and end of each
+temperature. Full fields are not saved for each measurement, so spatial
+correlation histories cannot be reconstructed. Restart checkpoints are not
 implemented yet.
 
 ## Analysis
@@ -51,3 +52,15 @@ scripts/run.py handles configuration and saved-run information.
 scripts/analyze.py loads completed runs and connects the analysis functions.
 Neither analysis nor a successful process exit establishes equilibration by
 itself.
+
+## Temperature scans
+
+With a scan configuration, main() calls run_temperature_scan(). It changes the
+sampler temperature and repeats run_chain() without reinitializing the lattice
+or RNG. Adaptation and settling repeat at each temperature. scripts/plot_scan.py
+checks the saved scan and plots each temperature using the existing statistics
+functions. See [Temperature scans](SCANS.md) for the full flow and commands.
+
+For a size list, scripts/run.py runs that C++ scan once per size. Each process
+starts a new lattice, RNG, and step size. Data go to L<size>/temperature_<index>,
+and plot_scan.py groups the temperature points into one curve for each L.

@@ -29,3 +29,5 @@ set_tests_properties(distribution PROPERTIES LABELS "distribution")
 add_test(NAME workflow COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_workflow.py" "$<TARGET_FILE:phi4>")
 add_test(NAME statistics COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_statistics.py")
 add_test(NAME analysis COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_analysis.py")
+
+add_test(NAME scan COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_scan.py" "$<TARGET_FILE:phi4>")

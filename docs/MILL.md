@@ -87,8 +87,9 @@ model, distribution and single-chain workflow validation pass on Mill.
 The new local scientific analysis was added after that sampler snapshot;
 analysis outputs record their own source hashes.
 
-Production remains on hold after the user's October 28 decision: pilots only,
-then choose a compute budget after benchmarks. No background monitor or
+After reviewing the October 28 pilot benchmarks, the user approved the
+production-proposal-20261028-b campaign with a 50 CPU-hour ceiling. Array
+2633589 was submitted with 25 one-CPU workers and two-hour limits. No background monitor or
 additional campaign is started by `status`, `pull` or analysis.
 
 `plan --replicas 2` creates two independent seeds for each requested start,

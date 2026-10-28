@@ -1,83 +1,97 @@
 # The Mill workflow
 
-## Evidence and open checks
+The Mill commands are in `scripts/mill.py`. The sampler remains sequential
+single-site Metropolis. Parallel work consists of independent chains at
+separate lattice sizes, temperatures and seeds, scheduled as Slurm array
+workers. Each worker uses one CPU and runs its assigned rows in sequence.
 
-Read-only reference: sibling J1J2 repository, inspected October 14, 2026:
+## Site reference and settings
+
+The site reference is the sibling J1J2 repository, read without modification:
 `configs/millcli.yaml`, `cluster/mill_files/batch/template.sub`,
 `configs/validation/honeycomb/mill_stripe_smoke.yaml`, and
-`docs/DATA_WORKFLOW.md`. Its flow is source sync -> submit -> status ->
-pull raw -> derive -> plot, using SSH, Slurm, and scratch raw storage.
+`docs/DATA_WORKFLOW.md`. Live checks on October 28 confirmed SSH access,
+partition `requeue`, account `general`, GCC 8.5 and `/usr/bin/python3.11`.
+The default Python is 3.6 and cannot run the launcher. No MPI is needed.
 
-[University quick start](https://itrss.mst.edu/cluster/quickstart/)
-documents SSH, file transfer, sbatch, and squeue. The existing J1J2 host
-is `mill.mst.edu`. No remote login or phi4 job has been attempted here.
+See the [Mill documentation](https://docs.itrss.umsystem.edu/pub/hpc/mill)
+for current policies. Compilation, tests and sampling run in scheduled compute
+allocations. Login-node operations are transfers, queue queries and submission.
 
-J1J2 uses `openmpi/4.1.6/gcc/12.2.0`; its recent smoke config uses partition
-`requeue`. Those are local reference observations, not confirmation of
-current module availability, partition access, limits, or phi4 requirements.
-A serial phi4 process does not require MPI. Verify g++, CMake, modules,
-partition/account policy, scratch retention, quotas, and queue limits before
-the first campaign. Never infer the user's CPU-hour budget from J1J2.
+Copy `configs/mill.example.toml` to ignored `configs/mill.local.toml` and set
+the SSO ID. SSH keys remain in the normal SSH configuration.
 
-## Separate project paths
+## Commands
 
-Proposed locations (must be confirmed on Mill):
+From the repository root:
 
 ```text
-source snapshots: $HOME/phi4/releases/<source-id>/
-Linux builds:     $HOME/phi4/builds/<source-id>/
-job logs:         $HOME/phi4/logs/
-raw runs:         /share/ceph/scratch/$USER/phi4/raw/<campaign>/<run_id>/
-durable results:  $HOME/phi4/results/<campaign>/
-local raw mirror: data/raw/<campaign>/<run_id>/
+python scripts/mill.py deploy
+python scripts/mill.py build RELEASE
+python scripts/mill.py status
 ```
 
-Environment variables above are expanded by the remote shell, not treated
-as literal directory names or expanded to the Windows user's home.
-Keep phi4 separate from J1J2. Scratch is working storage; confirm retention
-and back up required raw measurements before considering it an archive.
+Deployment creates a new source snapshot, refuses to overwrite an existing
+release and verifies the transferred archive checksum. Read the build job's
+logs before proceeding. The compute job builds with C++17/O3 (without fast
+math), then runs the independent model, distribution and workflow checks.
+A VALIDATED marker is written only if all commands succeed.
 
-## First deployment sequence (not executed)
+Prepare a short pilot:
 
-1. Check SSH/access and modules with read-only commands. Keep credentials
-   and host keys in normal SSH configuration, never repo files.
-2. Sync a clean source snapshot plus hashes, excluding local builds, data,
-   results, `.venv`, `.git`, and secrets. Do not sync a mutable source tree
-   underneath running jobs. Native Windows can use OpenSSH scp/SFTP;
-   use rsync from a proper shell environment if it is available later.
-3. Build and run C++ validation in a short permitted allocation. Keep
-   simulation workloads off the login node; use the site's build policy.
-4. Submit one tiny smoke run and pull it. Verify exit status, metadata,
-   completeness, parser, and Windows/Mill numerical consistency.
-5. Benchmark sweeps and measurements. Estimate per-chain runtime and
-   total CPU-hours. Approve a concrete campaign budget before production.
-6. Render/dry-run a manifest, inspect it, then submit bounded arrays.
-   One task, one CPU, one independent chain; array concurrency must obey
-   site policy and the authorized budget. Choose memory/time from pilots.
-7. Record job IDs and manifest hash. Inspect queue and accounting; pull
-   completed and failed-run diagnostics separately. Check walltime exits.
-8. Derive and plot locally, preserving raw samples. Update the ledger.
+```text
+python scripts/mill.py plan RELEASE example-pilot --sizes 8 12 --temperatures 15.25 15.35 15.45 --tasks 12 --minutes 10
+python scripts/mill.py submit cluster/manifests/example-pilot/manifest.json --budget-cpu-hours 2
+python scripts/mill.py pull RELEASE example-pilot
+```
 
-Useful read-only remote commands after connecting: `module avail`,
-`g++ --version`, `cmake --version`, `sinfo`, `squeue -u "$USER"`,
-and `sacct -j JOB_ID --format=JobID,State,ExitCode,Elapsed,MaxRSS`.
-These have not been run against Mill in this task.
+`plan` only writes local configurations and a manifest. The printed maximum
+CPU-hours is worker count times walltime, including all sequential rows.
+Submission requires an explicit budget at least that large. User approval
+of a campaign remains separate from the command-line budget argument.
 
-## Slurm contract for later implementation
+The account limit is 29 queued/running jobs, counting all the user's work,
+including J1J2 and every expanded array element. Submission checks `squeue -r`
+and uses a per-user lock to serialize this tool's submissions. Each batch has
+at most 27 workers. Other submission clients must also obey the account cap;
+the tool cannot reserve future slots against unrelated concurrent clients.
+The pilot maximum observed total was 27 jobs, including two J1J2 jobs.
 
-Render an explicit partition/account if required, walltime, memory,
-`--ntasks=1`, `--cpus-per-task=1`, a capped array, and stdout/stderr paths.
-Create the logs directory *before* sbatch; Slurm opens log files before
-the body runs. Map each array index to exactly one manifest row; validate
-index bounds, config hash, binary identity, and unique output directory.
+## Storage and integrity
 
-Use fail-fast shell behavior and explicit error traps. Write SUCCESS only
-after outputs are closed and validated. Requeue must not append duplicated
-measurements or overwrite a completed run. Until checkpoint resume is
-implemented, each attempt gets a new identity and is a fresh chain.
-Preserve failure logs; do not copy J1J2's automatic cleanup behavior.
+Scratch releases live under `/share/ceph/scratch/SSO/phi4/releases/RELEASE`.
+Each release contains sources, its build, job logs and `data/raw/CAMPAIGN`.
+The complete release is on scratch so the launcher's existing repository-bound
+output validation remains intact. A source archive and release hash manifest
+are also retained under `/home/SSO/phi4/releases/RELEASE`.
 
-A network/sandbox error is not a reason to change credentials or retry
-continuously. Report the limitation, obtain tool escalation when available,
-and continue local work. No inherited J1J2 authorization grants permission
-to submit phi4 campaigns, cancel jobs, or remove remote files.
+Each worker verifies source-file hashes, binary hash and each row's config hash
+before sampling. The launcher retains raw histories, configuration, source
+archive, seed, binary checksum, timings, success/failure metadata and output
+checksums. Independent starts never continue a preceding temperature's field.
+Every attempt needs a unique campaign/run identity; existing raw outputs are
+never overwritten. Requeue is disabled because restart checkpoints do not exist.
+Logs and failed attempts are retained. There is no automatic cleanup or retry.
+
+`pull` refuses an existing local campaign. For a separate recovery copy use
+`--destination data/raw/NEW_NAME`. Pull after all workers finish; incomplete
+copies remain explicit and are not silently repaired. Scratch and home are
+not backed up by Mill. Download required raw measurements to local storage.
+
+## Validation limits
+
+The October 28 release is `34f3b89caaf49088c7bc`. It includes the working-tree
+single-temperature `main.cpp` present at deployment. The existing uncommitted
+removal of temperature-scan support was preserved. The legacy scan test fails;
+model, distribution and single-chain workflow validation pass on Mill.
+The new local scientific analysis was added after that sampler snapshot;
+analysis outputs record their own source hashes.
+
+Production remains on hold after the user's October 28 decision: pilots only,
+then choose a compute budget after benchmarks. No background monitor or
+additional campaign is started by `status`, `pull` or analysis.
+
+`plan --replicas 2` creates two independent seeds for each requested start,
+so the default random/ordered pair becomes four chains per ensemble. Production
+proposal generation is not permission to submit. The current unsubmitted
+proposal is production-proposal-20261028-b; earlier proposal grids are superseded.

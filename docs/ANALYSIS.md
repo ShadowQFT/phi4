@@ -87,3 +87,54 @@ The analysis suite builds explicitly synthetic raw fixtures, verifies failure
 and corruption paths, checks split/block bookkeeping, exercises the CLI and
 exports PNG/PDF previews. These fixtures are labelled synthetic and retained
 under build/analysis-fixtures; they are not Monte Carlo pilot data.
+
+## Independent-chain campaign analysis
+
+For the Mill campaigns of independent single-temperature chains:
+
+```text
+python scripts/analyze_campaign.py data/raw/CAMPAIGN --output results/figures/NEW_OUTPUT --block-size 5000 --fit --degree 2 --replicates 2000
+```
+
+Each chain must have at least 20 complete blocks. Raw files and metadata are
+validated by the existing hash-checking loader. Never concatenate time series
+across chain boundaries. Compatible chains are pooled with retained-sample
+weights, after reporting their separate estimates and pairwise disagreements.
+The bootstrap resamples complete joint-moment blocks within each chain, retaining
+chain identities and original weights. It recomputes moments, Binder ratio,
+susceptibility, common crossing, slopes and exponents together.
+
+The autocorrelation estimator uses an FFT autocovariance, positive lag pairs and
+a self-consistent window. It is not an implementation of the full Gamma method.
+Stationarity is an assumption. Energy, |m|, m2 and m4 are checked separately.
+Blocking warnings, split-history discrepancies and between-chain disagreements
+are explicit. They are diagnostic flags, not automatic equilibration decisions.
+
+`--tmin`, `--tmax`, `--lmin`, `--degree` and `--crossing-sizes L1 L2` support
+sensitivity checks. The default Tc is the largest-size pair crossing inside the
+common measured temperature interval. This is a finite-volume quantity, without
+correction-to-scaling extrapolation. No literature exponents enter the fits.
+Require at least degree+2 temperatures per size and at least three sizes.
+Use four or more sizes to make the Lmin comparison meaningful.
+
+Local moment curves use inverse jackknife-error weights. Power fits use working
+relative-error weights (the Binder-slope working error is scaled from the local
+Binder error and window width); these are not a propagated slope covariance.
+Parameter intervals and covariance come from the complete joint bootstrap,
+not from the power-fit normal equations. Power-fit chi-square is therefore a
+working residual statistic, not a calibrated goodness-of-fit probability.
+Local polynomial chi-square uses the actual jackknife errors.
+
+Local polynomial chi-square/dof above 5, more than 5% failed bootstrap fits, or
+unresolved sampling flags withhold the candidate exponents from reporting.
+These are explicit conservative screening rules, not proof that passing fits
+have reached the asymptotic regime. Candidate fits are preserved in analysis.json
+for inspection, clearly marked with their scientific status. Bootstrap failure
+reasons and frequencies are saved; intervals are conditional on successful fits.
+
+Outputs include summary.csv, benchmark.csv, analysis.json, observable plots,
+production-history plots, and (when a candidate exists) scaling/collapse figures.
+Rejected fits' figures are labeled diagnostic. Analysis JSON records raw input
+hashes, analysis-code hashes, NumPy version, options, seeds and covariance order.
+Elapsed benchmark time includes burn-in, source archival and output validation.
+Use fresh output directories to preserve earlier analyses.

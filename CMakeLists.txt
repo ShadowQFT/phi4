@@ -31,3 +31,5 @@ add_test(NAME statistics COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/te
 add_test(NAME analysis COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_analysis.py")
 
 add_test(NAME scan COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_scan.py" "$<TARGET_FILE:phi4>")
+
+add_test(NAME scaling COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_scaling.py")

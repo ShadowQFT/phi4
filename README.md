@@ -13,8 +13,9 @@ The [proposal](proposal/phi4_proposal.tex) describes the project.
 The sampler, configuration files, and basic analysis scripts are working.
 The tests cover energy calculations, Metropolis acceptance, the noninteracting
 field distribution, statistical error estimates, and temperature continuation.
-Temperature scans and preliminary plots are implemented; finite-size-scaling
-fits are still to come. There are no measured critical exponents yet.
+Mill submission tooling and independent-chain pilots are working. Finite-size
+fits and joint bootstrap analysis are implemented, with quality checks that
+withhold unsuitable fits. There are no validated critical exponents yet.
 
 The model uses periodic boundaries and the Hamiltonian
 
@@ -44,7 +45,10 @@ python scripts/run.py configs/local/smoke.example.toml --validate-only
 ```
 
 See [macOS setup](docs/DEVELOPMENT.md#macos) for building and running on a Mac.
-The [class-demo spec](configs/local/class-demo.toml) runs sizes 4, 8, and 16.
+The [class-demo spec](configs/local/class-demo.toml) records an earlier scan.
+The current working-tree sampler supports single-temperature runs; the legacy
+scan suite is incompatible with the existing removal of its scan entry point.
+Use the [Mill workflow](docs/MILL.md) for independent parallel chains.
 See [analysis notes](docs/ANALYSIS.md) for working with saved runs.
 
 ## Code and notes

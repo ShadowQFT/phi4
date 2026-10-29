@@ -21,6 +21,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--block-size", type=int, default=500)
     parser.add_argument("--fit", action="store_true")
+    parser.add_argument(
+        "--save-blocks",
+        action="store_true",
+        help="Save joint moment blocks for reproducible fit sensitivity checks",
+    )
     parser.add_argument("--degree", type=int, choices=(1, 2), default=1)
     parser.add_argument("--lmin", type=int, default=0)
     parser.add_argument("--crossing-sizes", nargs=2, type=int)
@@ -72,6 +77,39 @@ def main():
         {"L": g["L"], "T": g["T"], "chain_comparisons": g["chain_comparisons"]}
         for g in ensembles
     ]
+    if args.save_blocks:
+        arrays = {}
+        reduced = []
+        for index, group in enumerate(ensembles):
+            keys = []
+            for chain, blocks in enumerate(group["blocks"]):
+                key = f"group_{index}_chain_{chain}"
+                arrays[key] = blocks
+                keys.append(key)
+            reduced.append(
+                {
+                    "L": group["L"],
+                    "T": group["T"],
+                    "central": group["central"].tolist(),
+                    "errors": group["errors"].tolist(),
+                    "block_arrays": keys,
+                    "chains": group["chains"],
+                }
+            )
+        np.savez_compressed(output / "block_moments.npz", **arrays)
+        (output / "block_moments.json").write_text(
+            json.dumps(
+                {
+                    "block_size_samples": args.block_size,
+                    "ensembles": reduced,
+                    "raw_provenance": "analysis.json: chains[].input_hashes",
+                    "note": "Six joint sample-moment means per contiguous block, separately for each chain; not independent observables",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     if args.fit:
         try:
             info["scaling"] = bootstrap_scaling(

@@ -138,3 +138,30 @@ Rejected fits' figures are labeled diagnostic. Analysis JSON records raw input
 hashes, analysis-code hashes, NumPy version, options, seeds and covariance order.
 Elapsed benchmark time includes burn-in, source archival and output validation.
 Use fresh output directories to preserve earlier analyses.
+
+
+### Production fit and stationarity review
+
+`analyze_campaign.py --save-blocks` also exports per-chain joint moment blocks
+and their ensemble mapping. This is a derived cache; preserve the accompanying
+analysis.json raw-file hashes. Adjacent blocks can be merged within each chain
+for a longer-block check; the implementation is tested against direct raw
+analysis and rejects fewer than 20 merged blocks per chain.
+
+```text
+python scripts/scaling_sensitivity.py results/figures/production-20261028 --output results/figures/NEW_SENSITIVITY --replicates 1000
+python scripts/review_split_chains.py results/figures/production-20261028 --permutations 200000 --output results/figures/NEW_SPLIT_REVIEW.json
+```
+
+The sensitivity script retains all declared cases: quadratic full/central/narrow
+windows, a linear alternative, smallest-size exclusions, alternative crossing
+pairs and doubled blocks. It does not override sampling warnings from the main
+analysis. A case passing local-fit screening is not proof of equilibrium.
+
+The exploratory split review permutes whole joint-moment blocks within each
+chain, recomputes the two halves' nonlinear observables and applies Holm's
+family-wise correction across every chain/observable comparison. This requires
+approximately exchangeable blocks under the null; failure to reject does not
+prove stationarity. The review retains all chains and original flags. Production
+used 200000 permutations; a single flagged susceptibility comparison remained.
+Do not discard that chain solely to improve the exponent comparison.

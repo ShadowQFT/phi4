@@ -16,7 +16,9 @@ from phi4_analysis.scaling import (
     power_fit,
     scaling_fit,
 )
-from phi4_analysis.statistics import NAMES
+from phi4_analysis.statistics import NAMES, _block_means, block_jackknife
+from review_split_chains import estimates, holm
+from scaling_sensitivity import reblock
 
 
 class ScalingTests(unittest.TestCase):
@@ -107,6 +109,70 @@ class ScalingTests(unittest.TestCase):
             np.mean([1, 2, 3, 4]) * 4 + np.mean([2, 3, 4, 5, 6, 7, 8, 9]) * 8
         ) / 12
         self.assertAlmostEqual(samples[:, NAMES.index("m")].mean(), expected, delta=0.1)
+
+    def test_reblocking_matches_direct_raw_analysis(self):
+        rng = np.random.default_rng(201)
+        energies = [rng.normal(size=n) for n in (800, 1000)]
+        magnetizations = [rng.normal(size=n) for n in (800, 1000)]
+        blocks = [_block_means(e, m, 10)[0] for e, m in zip(energies, magnetizations)]
+        merged = reblock({"L": 8, "T": 16.0, "blocks": blocks}, 2)
+        for block, e, m in zip(merged["blocks"], energies, magnetizations):
+            np.testing.assert_allclose(
+                block, _block_means(e, m, 20)[0], rtol=1e-14, atol=1e-14
+            )
+        direct = block_jackknife(
+            np.concatenate(energies), np.concatenate(magnetizations), 8**3, 16.0, 20
+        )
+        np.testing.assert_allclose(
+            merged["central"],
+            [direct["estimate"][name] for name in NAMES],
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        np.testing.assert_allclose(
+            merged["errors"],
+            [direct["standard_error"][name] for name in NAMES],
+            rtol=1e-12,
+            atol=1e-12,
+        )
+        with self.assertRaises(ValueError):
+            reblock({"L": 8, "T": 16.0, "blocks": blocks}, 10)
+
+    def test_vectorized_split_observables_match_scalar_formulas(self):
+        from phi4_analysis.statistics import _observables_from_moments
+
+        rng = np.random.default_rng(50)
+        raw = rng.normal(size=(12, 80))
+        moments = np.column_stack(
+            (
+                raw.mean(axis=1),
+                raw.mean(axis=1),
+                np.abs(raw).mean(axis=1),
+                (raw**2).mean(axis=1),
+                (raw**4).mean(axis=1),
+                (raw**2).mean(axis=1),
+            )
+        )
+        actual = estimates(moments, 12**3, 15.32)
+        names = ("e", "abs_m", "B4", "chi_abs")
+        expected = np.array(
+            [
+                [
+                    _observables_from_moments(row, 12**3, 15.32)[NAMES.index(name)]
+                    for name in names
+                ]
+                for row in moments
+            ]
+        )
+        np.testing.assert_allclose(actual, expected)
+
+    def test_holm_adjustment(self):
+        np.testing.assert_allclose(
+            holm([0.001, 0.01, 0.04, 0.2]), [0.004, 0.03, 0.08, 0.2]
+        )
+        np.testing.assert_allclose(
+            holm([0.2, 0.04, 0.001, 0.01]), [0.2, 0.08, 0.004, 0.03]
+        )
 
     def test_account_cap_counts_expanded_array_elements(self):
         self.assertEqual(mill.slots("1\n2\n", 27), 2)

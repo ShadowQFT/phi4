@@ -56,6 +56,7 @@ See [analysis notes](docs/ANALYSIS.md) for working with saved runs.
 - [Code walkthrough](docs/CODE.md): where the main calculations happen.
 - [Model definitions](docs/PHYSICS.md): Hamiltonian and observables.
 - [Monte Carlo](docs/MONTE_CARLO.md): updates, burn-in, and measurements.
+- [Parallel tempering](docs/PARALLEL_TEMPERING.md): optional MPI temperature replicas and joint analysis.
 - [Temperature scans](docs/SCANS.md): heating, cooling, and preliminary plots.
 - [Statistics](docs/STATISTICS.md): blocking and uncertainty estimates.
 - [Project status](docs/STATUS.md): what works and what is next.

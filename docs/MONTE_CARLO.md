@@ -1,8 +1,10 @@
 # Metropolis sampling contract
 
-Implement one serial chain per process first. Parallelize independent
-(L, T, seed, initial-state) chains with Slurm arrays, not conflicting site
-updates. No MPI dependency is needed for this stage.
+The baseline runs one serial chain per process and parallelizes independent
+(L, T, seed, initial-state) chains with Slurm arrays. The optional MPI parallel-
+tempering sampler adds exchanges between temperature replicas while retaining
+Metropolis local updates. See PARALLEL_TEMPERING.md for its separate data and
+resampling contract. MPI remains optional for the baseline.
 
 ## Sweep
 

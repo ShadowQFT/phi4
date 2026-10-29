@@ -33,3 +33,20 @@ add_test(NAME analysis COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/test
 add_test(NAME scan COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_scan.py" "$<TARGET_FILE:phi4>")
 
 add_test(NAME scaling COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_scaling.py")
+
+# The serial ladder is also the deterministic oracle for the MPI orchestration.
+add_executable(phi4_pt_serial src/pt.cpp)
+target_link_libraries(phi4_pt_serial PRIVATE phi4_core)
+add_executable(test_tempering tests/cpp/test_tempering.cpp)
+target_link_libraries(test_tempering PRIVATE phi4_core)
+add_test(NAME tempering COMMAND test_tempering)
+option(PHI4_ENABLE_MPI "Build the optional MPI replica-exchange sampler" OFF)
+if(PHI4_ENABLE_MPI)
+  find_package(MPI REQUIRED COMPONENTS CXX)
+  add_executable(phi4_pt src/pt.cpp)
+  target_compile_definitions(phi4_pt PRIVATE PHI4_MPI=1)
+  target_link_libraries(phi4_pt PRIVATE phi4_core MPI::MPI_CXX)
+endif()
+
+add_test(NAME pt_workflow COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_pt.py" "$<TARGET_FILE:phi4_pt_serial>" "$<TARGET_FILE:phi4>")
+add_test(NAME pt_statistics COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_pt_statistics.py")

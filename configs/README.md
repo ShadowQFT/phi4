@@ -1,4 +1,9 @@
 # Configurations
 
-local/smoke.example.toml is validated single-chain schema 1. Campaign and
-Mill examples remain drafts. Scientific runs are currently on user hold.
+The files under local/ demonstrate validated single-chain and parallel-tempering
+inputs. Use `scripts/run.py CONFIG --validate-only` for single-chain or scan
+inputs and `scripts/run_pt.py CONFIG --validate-only` for tempering inputs.
+
+`mill.example.toml` contains placeholders for site configuration. Copy it to an
+ignored `mill.local.toml` and supply your own account before using cluster tools.
+Examples are not recommended production settings or authorization to submit jobs.

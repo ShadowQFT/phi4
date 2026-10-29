@@ -27,3 +27,18 @@ configs/**/*.local.toml
 /.agent/
 /docs/IMPLEMENTATION.md
 /docs/AGENT_WORKFLOW.md
+
+# Private planning, research ledgers, and workstation notes
+/AGENTS.md
+/.vscode/
+/docs/ACTIVE_RESEARCH.md
+/docs/STATUS.md
+/docs/FRIDAY_PLAN.md
+/docs/ROADMAP.md
+/docs/FIGURES.md
+/docs/PROJECT.md
+/docs/VERSION_CONTROL.md
+/configs/campaigns/clean_friday.draft.toml
+/proposal/
+/reports/
+/cluster/README.md

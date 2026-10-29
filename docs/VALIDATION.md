@@ -1,6 +1,7 @@
 # Validation gates
 
-These are acceptance criteria; actual local/pending evidence is in STATUS.md.
+These are acceptance criteria. CI checks the registered software test suite;
+scientific claims require the additional sampling and fitting evidence below.
 Physics-bearing changes require independent expected values or identities.
 
 | Gate | Check | Evidence required |
@@ -30,5 +31,5 @@ using controlled numerical tails. Compare several even moments. This
 oracle cannot reuse Metropolis output to set its expected answer.
 
 Analytic expectations near criticality are not a license to calibrate test
-tolerances around a desired exponent. Track failures and incomplete gates
-in `STATUS.md`; never replace a failed test with a looser undocumented check.
+tolerances around a desired exponent. Track failures and incomplete gates in the relevant run or analysis record;
+never replace a failed test with a looser undocumented check.

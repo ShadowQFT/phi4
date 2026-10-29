@@ -1,11 +1,17 @@
-# Notes
+# Documentation
 
-| Topic | Files |
+Start with the [project README](../README.md) for a buildable example and a map
+of the C++ and Python components.
+
+| Topic | Documentation |
 | --- | --- |
-| Getting started | [Project](PROJECT.md), [Code walkthrough](CODE.md), [Progress](STATUS.md) |
-| Physics and sampling | [Model](PHYSICS.md), [Monte Carlo](MONTE_CARLO.md), [Tests](VALIDATION.md) |
-| Analysis | [Temperature scans](SCANS.md), [Usage](ANALYSIS.md), [Statistics](STATISTICS.md), [Finite-size scaling](FINITE_SIZE_SCALING.md) |
-| Inputs and output | [Configuration](CONFIG_CONTRACT.md), [Saved data](DATA_CONTRACT.md) |
-| Development | [Build setup](DEVELOPMENT.md), [Git](VERSION_CONTROL.md), [Design notes](DECISIONS.md) |
-| Next steps | [Roadmap](ROADMAP.md), [Mill](MILL.md), [Runs](ACTIVE_RESEARCH.md) |
-| Background | [References](REFERENCES.md), [Reproducibility](REPRODUCIBILITY.md) |
+| Implementation | [Architecture](ARCHITECTURE.md), [code walkthrough](CODE.md), [design choices](DECISIONS.md) |
+| Model and algorithms | [Physics conventions](PHYSICS.md), [Metropolis sampling](MONTE_CARLO.md), [parallel tempering](PARALLEL_TEMPERING.md) |
+| Running locally | [Development setup](DEVELOPMENT.md), [input contract](CONFIG_CONTRACT.md), [output contract](DATA_CONTRACT.md), [temperature scans](SCANS.md) |
+| Analysis | [Usage and diagnostics](ANALYSIS.md), [statistics](STATISTICS.md), [finite-size scaling](FINITE_SIZE_SCALING.md) |
+| Verification | [Independent validation](VALIDATION.md), [reproducibility](REPRODUCIBILITY.md) |
+| Cluster workflow | [Mill deployment and Slurm](MILL.md) |
+| Background | [Sources and reading map](REFERENCES.md) |
+
+Research ledgers, meeting plans, personal editor settings, and unfinished campaign
+specifications are local working material rather than project documentation.

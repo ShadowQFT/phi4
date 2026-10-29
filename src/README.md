@@ -1,4 +1,6 @@
-# C++ program
+# C++ programs
 
-main.cpp implements the internal single-chain executable. Use the public
-scripts/run.py TOML launcher. See ../docs/IMPLEMENTATION.md.
+`main.cpp` runs a chain or temperature scan and writes measurements.
+`pt.cpp` implements the serial reference ladder and optional MPI tempering.
+Use the Python TOML launchers in scripts/ rather than invoking internal binary
+arguments directly. The [code walkthrough](../docs/CODE.md) follows execution.

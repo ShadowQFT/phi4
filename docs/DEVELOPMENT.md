@@ -2,10 +2,9 @@
 
 ## Windows route
 
-Observed October 14, 2026: GCC 13.2.0, CMake 3.29.2, Ninja 1.12.0 under
-`C:/msys64/mingw64/bin`; Python 3.13.1 and Git are available. Use these
-tools first. No new compiler installation is currently indicated.
-Availability/version checks are not evidence that a full simulator builds.
+Requires a C++17 compiler, CMake 3.21+, Ninja, Python 3.11+, and Git.
+The Windows setup has been checked with MinGW GCC 13.2.0 and Python 3.13.1.
+Keep compiler installation paths in the local environment rather than in source.
 
 From PowerShell in the repository:
 
@@ -14,7 +13,7 @@ cmake --preset local-debug
 ```
 
 Rebuild after editing C++; the launcher does not check compiled-source
-fingerprints. Build and run the six validation suites:
+fingerprints. Build and run the registered validation suites:
 
 ```powershell
 cmake --build --preset local-debug

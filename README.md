@@ -1,71 +1,120 @@
-# 3D phi4 model
+# 3D phi4 Monte Carlo simulator
 
-My project for PHYSICS 5409 Computational Physics Lab. I'm using Metropolis
-Monte Carlo to study the three-dimensional lattice phi4 model, with the goal
-of estimating its critical temperature and critical exponents through
-finite-size scaling.
+A C++17 simulation project for studying ordering in a three-dimensional scalar
+field, with Python tools for reproducible runs, statistical analysis, and plots.
+I built this for PHYSICS 5409 Computational Physics Lab at Missouri University
+of Science & Technology.
 
-The simulation is written in C++17, with Python scripts for analysis and plots.
-The [proposal](proposal/phi4_proposal.tex) describes the project.
+The engineering work includes implementing and testing numerical algorithms,
+validating configuration files, preserving run provenance, and separating the
+simulation from analysis and cluster orchestration.
 
-## Current progress
+## What the software does
 
-The sampler, configuration files, and basic analysis scripts are working.
-The tests cover energy calculations, Metropolis acceptance, the noninteracting
-field distribution, statistical error estimates, and temperature continuation.
-Mill submission tooling and independent-chain pilots are working. Finite-size
-fits and joint bootstrap analysis are implemented, with quality checks that
-withhold unsuitable fits. There are no validated critical exponents yet.
+- **C++17 simulation:** periodic cubic lattices, local Metropolis updates,
+  reproducible seeds, burn-in, and measurement output.
+- **Parallel tempering:** a serial reference implementation and an optional MPI
+  executable that exchanges replicas between neighboring temperatures.
+- **Python workflow:** TOML validation, immutable run directories, saved source
+  snapshots, file checksums, and explicit success or failure records.
+- **Analysis:** observables, autocorrelation diagnostics, block jackknife and
+  bootstrap uncertainty estimates, and finite-size fits.
+- **Independent checks:** analytical energy identities, separate full-energy
+  calculations, quadrature comparisons, and synthetic statistical fixtures.
 
-The model uses periodic boundaries and the Hamiltonian
+## Model
+
+Each lattice site holds a real-valued field rather than a binary spin. Neighboring
+sites interact, while the local potential favors two field values:
 
 ```text
 H = -J sum_<ij> phi_i phi_j + sum_i [(r/2) phi_i^2 + (u/4) phi_i^4]
 ```
 
-The current defaults are J=1, r=-1, u=1. The couplings, temperature, lattice
-size, seed, and sweep counts are set in TOML files under configs/.
+The example couplings are `J=1`, `r=-1`, and `u=1`. Lattice size, temperature,
+seed, and sweep counts are configured in TOML.
 
-## Build and test
+![Analytical on-site potential for r=-1 and u=1](docs/images/onsite-potential.png)
 
-Requires CMake 3.21+, Ninja, a C++17 compiler, and Python 3.11+. The Python
-analysis uses NumPy and Matplotlib; versions are listed in
-[analysis/requirements.txt](analysis/requirements.txt).
+*The curve shows the analytical on-site term only. It is a model illustration,
+not a simulation result or an estimate of the transition temperature.*
 
-```powershell
+## Build and check
+
+Requires a C++17 compiler, CMake 3.21+, Ninja, and Python 3.11+. Install the Python
+analysis dependencies in your development environment, then build from the
+repository root:
+
+```sh
+python -m pip install -r analysis/requirements.txt
 cmake --preset local-debug
 cmake --build --preset local-debug
 ctest --test-dir build/local-debug --output-on-failure
 ```
 
-To check the example configuration without running a simulation:
+The default build requires no MPI installation. The same CTest suite is configured
+in [GitHub Actions](.github/workflows/build.yml) for Windows and Linux. A green
+check means those software tests passed; it does not establish equilibration or
+validate a critical exponent.
 
-```powershell
+See [development setup](docs/DEVELOPMENT.md) for virtual environments, compiler
+selection, macOS instructions, and a separate build for each platform.
+
+### Try a small operational example
+
+Validate the input without running a simulation:
+
+```sh
 python scripts/run.py configs/local/smoke.example.toml --validate-only
 ```
 
-See [macOS setup](docs/DEVELOPMENT.md#macos) for building and running on a Mac.
-The [class-demo spec](configs/local/class-demo.toml) records an earlier scan.
-The current working-tree sampler supports single-temperature runs; the legacy
-scan suite is incompatible with the existing removal of its scan entry point.
-Use the [Mill workflow](docs/MILL.md) for independent parallel chains.
-See [analysis notes](docs/ANALYSIS.md) for working with saved runs.
+To execute the tiny `L=4` check after building:
 
-## Code and notes
+```sh
+# Windows
+python scripts/run.py configs/local/smoke.example.toml --binary build/local-debug/phi4.exe
 
-- [Code walkthrough](docs/CODE.md): where the main calculations happen.
-- [Model definitions](docs/PHYSICS.md): Hamiltonian and observables.
-- [Monte Carlo](docs/MONTE_CARLO.md): updates, burn-in, and measurements.
-- [Parallel tempering](docs/PARALLEL_TEMPERING.md): optional MPI temperature replicas and joint analysis.
-- [Temperature scans](docs/SCANS.md): heating, cooling, and preliminary plots.
-- [Statistics](docs/STATISTICS.md): blocking and uncertainty estimates.
-- [Project status](docs/STATUS.md): what works and what is next.
+# Linux or macOS
+python scripts/run.py configs/local/smoke.example.toml --binary build/local-debug/phi4
+```
 
-The sampler is in include/phi4/sampler.hpp, the energy calculations are in
-include/phi4/model.hpp, and src/main.cpp runs the simulation. Python analysis
-code is in analysis/phi4_analysis/. Generated files and local data are kept
-out of Git.
+This input performs 100 settling sweeps and saves 100 measurement rows. It writes
+`measurements.csv`, `equilibration.csv`, a resolved configuration, a source
+snapshot, and run metadata under `data/raw/local-smoke/`. Reusing the same output
+path is refused; choose a new run ID for another attempt. This is an operational
+example, not a production physics calculation.
 
-## AI assistance
+## Follow the code
 
-Codex was used to assist with implementation/debugging. 
+| Component | Start here | Purpose |
+| --- | --- | --- |
+| Lattice and energy | [model.hpp](include/phi4/model.hpp) | Periodic neighbors, energy, and local energy changes |
+| Local sampler | [sampler.hpp](include/phi4/sampler.hpp) | Initialization, proposals, acceptance, and measurements |
+| Executables | [main.cpp](src/main.cpp), [pt.cpp](src/pt.cpp) | Chain execution and serial/MPI tempering |
+| Run workflow | [run.py](scripts/run.py), [run_pt.py](scripts/run_pt.py) | Validate inputs and preserve outputs and provenance |
+| Analysis | [phi4_analysis](analysis/phi4_analysis/) | Load data, calculate observables, estimate errors, and plot diagnostics |
+| Checks | [C++ tests](tests/cpp/), [Python tests](tests/python/) | Independent numerical and workflow checks |
+
+For a closer look, read the [code walkthrough](docs/CODE.md) and
+[validation plan](docs/VALIDATION.md). [Architecture](docs/ARCHITECTURE.md)
+explains the boundaries between the components. MPI setup and replica-exchange
+checks are documented in [parallel tempering](docs/PARALLEL_TEMPERING.md).
+
+## Scientific status
+
+The simulation, analysis, and cluster workflows are implemented. Critical
+exponents remain preliminary: passing software checks and completing runs do not
+by themselves establish equilibrium or asymptotic scaling. Raw histories,
+independent starts, block sizes, and fit sensitivity must still support any
+scientific claim. The [validation plan](docs/VALIDATION.md) explains the
+checks required before interpreting results.
+
+Generated builds, raw datasets, working plots, and internal research planning
+notes stay out of Git.
+
+## Development and AI assistance
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks and the distinction between
+software plumbing and physics-bearing changes. Codex assisted with implementation
+and debugging. I remain responsible for reviewing the code and validating the
+scientific results.

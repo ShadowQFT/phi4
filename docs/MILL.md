@@ -7,12 +7,10 @@ workers. Each worker uses one CPU and runs its assigned rows in sequence.
 
 ## Site reference and settings
 
-The site reference is the sibling J1J2 repository, read without modification:
-`configs/millcli.yaml`, `cluster/mill_files/batch/template.sub`,
-`configs/validation/honeycomb/mill_stripe_smoke.yaml`, and
-`docs/DATA_WORKFLOW.md`. Live checks on October 28 confirmed SSH access,
-partition `requeue`, account `general`, GCC 8.5 and `/usr/bin/python3.11`.
-The default Python is 3.6 and cannot run the launcher. No MPI is needed.
+The helper scripts target Missouri S&T's Mill cluster. Verify the scheduler
+partitions, account, compiler modules, and Python version before adapting the
+examples. The launcher requires Python 3.11 or newer. The independent-chain
+workflow does not require MPI; parallel tempering uses the separate MPI build.
 
 See the [Mill documentation](https://docs.itrss.umsystem.edu/pub/hpc/mill)
 for current policies. Compilation, tests and sampling run in scheduled compute
@@ -51,11 +49,10 @@ Submission requires an explicit budget at least that large. User approval
 of a campaign remains separate from the command-line budget argument.
 
 The account limit is 29 queued/running jobs, counting all the user's work,
-including J1J2 and every expanded array element. Submission checks `squeue -r`
+including other projects and every expanded array element. Submission checks `squeue -r`
 and uses a per-user lock to serialize this tool's submissions. Each batch has
 at most 27 workers. Other submission clients must also obey the account cap;
 the tool cannot reserve future slots against unrelated concurrent clients.
-The pilot maximum observed total was 27 jobs, including two J1J2 jobs.
 
 ## Storage and integrity
 
@@ -80,19 +77,14 @@ not backed up by Mill. Download required raw measurements to local storage.
 
 ## Validation limits
 
-The October 28 release is `34f3b89caaf49088c7bc`. It includes the working-tree
-single-temperature `main.cpp` present at deployment. The existing uncommitted
-removal of temperature-scan support was preserved. The legacy scan test fails;
-model, distribution and single-chain workflow validation pass on Mill.
-The new local scientific analysis was added after that sampler snapshot;
-analysis outputs record their own source hashes.
-
-After reviewing the October 28 pilot benchmarks, the user approved the
-production-proposal-20261028-b campaign with a 50 CPU-hour ceiling. Array
-2633589 was submitted with 25 one-CPU workers and two-hour limits. No background monitor or
-additional campaign is started by `status`, `pull` or analysis.
+A deployed source snapshot, its compiled binary, and the associated validation
+logs identify what ran on the cluster. Require the build's validation marker
+before submitting scientific work. Local and cluster builds must be checked
+separately; neither a completed job nor a validated binary establishes
+sampling equilibrium or reliable critical exponents.
 
 `plan --replicas 2` creates two independent seeds for each requested start,
-so the default random/ordered pair becomes four chains per ensemble. Production
-proposal generation is not permission to submit. The current unsubmitted
-proposal is production-proposal-20261028-b; earlier proposal grids are superseded.
+so a random/ordered pair becomes four chains per ensemble. Preparing a plan
+and supplying a budget argument are separate from authorizing a submission.
+No background monitor or additional campaign is started by status, pull, or
+analysis commands.

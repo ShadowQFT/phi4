@@ -22,7 +22,3 @@ for reading full methods before reproducing a specific algorithm/action.
   Local environment isolation.
 - [CMake presets](https://cmake.org/cmake/help/v3.22/manual/cmake-presets.7.html).
   Shared presets versus private machine settings.
-
-
-Local workflow references: J1J2 files listed in MILL.md, inspected read-only.
-The project proposal is in proposal/phi4_proposal.tex.

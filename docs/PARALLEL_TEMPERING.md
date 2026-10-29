@@ -19,9 +19,8 @@ p_accept = min(1, exp(log R)).
 H is the total Hamiltonian, not energy per site. The coordinator uses a separate
 recorded random stream. Accepted exchanges change temperature labels, keeping
 fields and their local RNGs on their ranks. A broadcast updates the permutation.
-This follows J1J2's GROUPED method in
-sim/square_j1j2/J1J2_6tv.f90: grouped_pt_cycle and grouped_pt_attempt_swaps.
-J1J2 is a read-only reference; its spin observables are not reused for phi4.
+The local Metropolis observables and field definitions remain specific to phi4;
+replica exchange changes temperature labels rather than the physical model.
 
 Each temperature adapts its proposal step independently without exchanges first.
 Adaptation then stops. Frozen step sizes follow temperatures, not configurations,
@@ -64,7 +63,7 @@ NumPy and Matplotlib are only required for local analysis.
 
 One ladder is one Slurm job, with K allocated CPU cores for K temperatures.
 The submission guard counts all the user's queued/running jobs and expanded
-array elements, including J1J2, and requires fewer than 30 after submission.
+array elements from other projects, and requires fewer than 30 after submission.
 CPU-hour caps count EVERY replica: K times the worker walltime. An MPI ladder
 cannot bypass the compute accounting merely by counting as one job.
 
@@ -124,25 +123,16 @@ all-replica CPU-hour efficiency, with Slurm accounting authoritative for cost.
 
 ## Verification
 
-Local Debug and Release: nine applicable CTest suites pass, including exchange
-identities, PT workflow and synchronized statistics. The legacy scan suite is
-incompatible with the pre-existing user edit in src/main.cpp and remains excluded.
+The registered CTest suites cover the serial reference ladder, workflow,
+exchange logic, and synchronized statistics. PT-specific checks include an
+independent finite-state Boltzmann detailed-balance oracle, total-energy and
+temperature factors, label permutations, one-temperature replay, invalid ladder
+and seed rejection, numerical quadrature for J=0, and synthetic finite-size fits.
 
-PT-specific checks include an independent finite-state Boltzmann detailed-balance
-oracle; total-energy/sign/temperature factors; label permutations and full round
-trips; one-temperature replay of the original sampler; deterministic serial
-ladders; invalid ladder/seed rejection; routing corruption; J=0 e, m2 and m4
-against independently refined Simpson quadrature; synchronized block alignment;
-cross-temperature bootstrap covariance; exact synthetic finite-size exponents;
-and rejection of repeated streams between supposedly independent ladders.
-The launcher checks the executable's compiled serial/MPI mode before starting
-workers, preventing a serial emulation from being launched independently on every
-MPI rank. This guard is tested before invoking mpiexec. Mill additionally passes
-byte-for-byte MPI versus serial ladder histories,
-including measurements, burn-in, swaps, walks and summary.
-
-See ACTIVE_RESEARCH.md for the actual release, builds, benchmark jobs and results.
-
+The launcher checks the executable's compiled serial/MPI mode before invoking
+mpiexec. MPI execution additionally needs an MPI build and a replay comparison
+against the serial reference on the target system. Passing local serial tests
+does not by itself establish that a cluster's MPI setup works.
 
 ## References
 

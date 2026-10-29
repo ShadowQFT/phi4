@@ -165,3 +165,19 @@ approximately exchangeable blocks under the null; failure to reject does not
 prove stationarity. The review retains all chains and original flags. Production
 used 200000 permutations; a single flagged susceptibility comparison remained.
 Do not discard that chain solely to improve the exponent comparison.
+
+
+### Normalized Binder plotting convention
+
+Campaign observable and collapse plots now use B_N=(3-B4)/2, with ordered and
+centered-Gaussian high-temperature limits 1 and 0. The errors are sigma_B4/2.
+Values are not clipped, nor scaled using sampled minima/maxima. The slope plot
+uses |d B_N/dT|=|d B4/dT|/2. Raw B4 remains stored and used internally for the
+same crossing and exponent fits; an affine transformation preserves crossings
+and changes slope amplitudes without changing power-law exponents.
+
+The existing production observable figure was regenerated from its saved summary
+as results/figures/production-20261028-normalized/observables.png and PDF. The
+plot_info.json records the summary checksum, plotting-code checksum and formulas.
+Its 35 ensemble rows were checked against the exact Binder/error transformation;
+all eight existing statistics tests pass, including the limiting-value checks.

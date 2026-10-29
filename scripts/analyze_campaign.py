@@ -15,6 +15,47 @@ from phi4_analysis.scaling import bootstrap_scaling, load_ensembles  # noqa: E40
 from phi4_analysis.statistics import NAMES  # noqa: E402
 
 
+def plot_observables(ensembles, output):
+    """Render the normalized Binder cumulant and the unchanged susceptibility."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    output = Path(output)
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4), layout="constrained")
+    labels = {
+        "binder": r"$B_N=(3-B_4)/2$",
+        "abs_m": r"$\langle |m|\rangle$",
+        "chi_abs": r"$\chi_{|m|}$",
+    }
+    for L in sorted({g["L"] for g in ensembles}):
+        groups = sorted((g for g in ensembles if g["L"] == L), key=lambda g: g["T"])
+        for ax, name in zip(axes, ("binder", "abs_m", "chi_abs")):
+            col = NAMES.index(name)
+            ax.errorbar(
+                [g["T"] for g in groups],
+                [g["central"][col] for g in groups],
+                yerr=[g["errors"][col] for g in groups],
+                marker="o",
+                label=f"L={L}",
+                capsize=2,
+            )
+            ax.set(xlabel="Temperature", ylabel=labels[name])
+    axes[0].axhline(0, color="0.6", linestyle=":", linewidth=0.8)
+    axes[0].axhline(1, color="0.6", linestyle=":", linewidth=0.8)
+    col = NAMES.index("binder")
+    axes[0].set_ylim(
+        min(-0.05, min(g["central"][col] - g["errors"][col] for g in ensembles)),
+        max(1.05, max(g["central"][col] + g["errors"][col] for g in ensembles)),
+    )
+    axes[0].legend(fontsize=8)
+    fig.suptitle("Independent Metropolis chains - preliminary block errors")
+    fig.savefig(output / "observables.png", dpi=180)
+    fig.savefig(output / "observables.pdf")
+    plt.close(fig)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("campaigns", nargs="+", type=Path)
@@ -196,25 +237,7 @@ def main():
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(1, 3, figsize=(13, 4), layout="constrained")
-    for L in sorted({g["L"] for g in ensembles}):
-        groups = [g for g in ensembles if g["L"] == L]
-        for ax, name in zip(axes, ("B4", "abs_m", "chi_abs")):
-            col = NAMES.index(name)
-            ax.errorbar(
-                [g["T"] for g in groups],
-                [g["central"][col] for g in groups],
-                yerr=[g["errors"][col] for g in groups],
-                marker="o",
-                label=f"L={L}",
-                capsize=2,
-            )
-            ax.set(xlabel="Temperature", ylabel=name)
-    axes[0].legend()
-    fig.suptitle("Independent Metropolis chains - preliminary block errors")
-    fig.savefig(output / "observables.png", dpi=180)
-    fig.savefig(output / "observables.pdf")
-    plt.close(fig)
+    plot_observables(ensembles, output)
     fig, axes = plt.subplots(
         len(runs),
         2,
@@ -241,16 +264,17 @@ def main():
         fig, axes = plt.subplots(1, 3, figsize=(13, 4), layout="constrained")
         for ax, name in zip(axes, ("B4", "abs_m", "chi_abs")):
             sizes = np.array(fit["sizes"], dtype=float)
-            y = np.array(fit["values_at_Tc"][name])
+            scale = 0.5 if name == "B4" else 1.0
+            y = scale * np.array(fit["values_at_Tc"][name])
             model = fit["power_fits"][name]
             ax.loglog(sizes, y, "o", label="Interpolated at crossing")
             ax.loglog(
                 sizes,
-                model["amplitude"] * sizes ** model["slope"],
+                scale * model["amplitude"] * sizes ** model["slope"],
                 "--",
                 label="Working power fit",
             )
-            ax.set(xlabel="L", ylabel="d B4 / dT" if name == "B4" else name)
+            ax.set(xlabel="L", ylabel="|d B_N / dT|" if name == "B4" else name)
         axes[0].legend(fontsize=7)
         fig.suptitle(
             "Preliminary scaling"
@@ -266,7 +290,7 @@ def main():
             x = [(g["T"] - fit["Tc"]) * L ** (1 / fit["nu"]) for g in groups]
             for ax, name, power in zip(
                 axes,
-                ("B4", "abs_m", "chi_abs"),
+                ("binder", "abs_m", "chi_abs"),
                 (0, fit["beta_over_nu"], -fit["gamma_over_nu"]),
             ):
                 col = NAMES.index(name)

@@ -121,6 +121,35 @@ ACF window might miss; finite-block uncertainty still applies. B4's analogous
 estimate uses its moment influence function. Compare both elapsed-time and
 all-replica CPU-hour efficiency, with Slurm accounting authoritative for cost.
 
+### Production review and figures
+
+For two independent ladders at each of L=16,24,32,48, first analyze all eight
+raw folders together with `analyze_pt.py --block-size 1000`. Then review the
+saved joint moment blocks and generate figures:
+
+```text
+python scripts/review_pt_production.py results/figures/PT_ANALYSIS --output results/figures/PT_REVIEW --replicates 2000
+python scripts/plot_pt_review.py results/figures/PT_ANALYSIS results/figures/PT_REVIEW --output results/figures/PT_FIGURES
+```
+
+This campaign review uses blocks of 1000,2000,5000 saved samples and refuses
+reblocking that would discard a tail. It retains random and ordered starts
+separately, reports their unadjusted comparison scores, and repeats ten fits:
+central window, shorter/longer blocks, wider window, linear interpolation,
+smallest-size exclusion, two alternative crossing pairs, and each start alone.
+The central window is 15.30-15.34 with crossing pair (24,48); the wider check
+uses 15.28-15.36. These are explicit campaign settings, not automatic choices
+for arbitrary temperature grids. Inputs, source hashes, covariance and failed
+fits are preserved. A failed variant remains in the sensitivity figure.
+
+The plot tool writes normalized Binder and susceptibility curves, effective
+power-law fits, exponent sensitivity, blocking diagnostics and CSV tables.
+Figure error bars use 5000-sample blocks; the central exponent fit uses 2000.
+Its literature lines are comparisons, never constraints. Statistical intervals
+do not include finite-size corrections or an extrapolation to infinite volume.
+The raw-versus-cached reblocking test checks estimates, errors and synchronized
+bins against direct raw-history analysis.
+
 ## Verification
 
 The registered CTest suites cover the serial reference ladder, workflow,

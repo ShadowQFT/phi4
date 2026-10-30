@@ -75,11 +75,12 @@ def main():
 
     fig, axes = plt.subplots(1, 3, figsize=(13, 4), layout="constrained")
     for report in reports:
-        label = (
-            f"swap every {report['swap_every_sweeps']}"
-            if report["swap_every_sweeps"]
-            else "No exchanges"
+        campaign = Path(report["folder"]).parent.name
+        replicate = (
+            campaign.split("-r")[-1].split("-")[0] if "-r" in campaign else campaign
         )
+        label = f"L={report['L']}, run {replicate}"
+        label += f", swap {report['swap_every_sweeps']}"
         for ax, name in zip(axes, ("binder", "abs_m", "chi_abs")):
             ax.errorbar(
                 [r["temperature"] for r in report["temperatures"]],
@@ -94,7 +95,7 @@ def main():
             )
             ax.set(xlabel="Temperature", ylabel=name)
     axes[0].legend(fontsize=8)
-    fig.suptitle("Replica-exchange benchmark - preliminary block errors")
+    fig.suptitle("Parallel tempering - preliminary block errors")
     fig.savefig(output / "observables.png", dpi=180)
     fig.savefig(output / "observables.pdf")
     plt.close(fig)

@@ -50,3 +50,4 @@ endif()
 
 add_test(NAME pt_workflow COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_pt.py" "$<TARGET_FILE:phi4_pt_serial>" "$<TARGET_FILE:phi4>")
 add_test(NAME pt_statistics COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_pt_statistics.py")
+add_test(NAME pt_review COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/python/test_pt_review.py")

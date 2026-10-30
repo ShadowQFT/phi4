@@ -36,6 +36,35 @@ temperature. Full fields are not saved for each measurement, so spatial
 correlation histories cannot be reconstructed. Restart checkpoints are not
 implemented yet.
 
+## Following a parallel-tempering run
+
+[pt.cpp](../src/pt.cpp) starts with the distinction between a physical replica
+and a temperature slot. A replica keeps its fields and random-number stream;
+only its temperature label moves. The serial reference owns every replica in
+one process; the MPI build owns one replica per rank.
+
+`read_run_settings()` names and checks the resolved command-line inputs.
+`TemperingRun::run()` then performs adaptation, settling and measurement in
+that order. To follow one sweep, start with `run_phase()`:
+
+1. `advance_local_replicas()` sets the current temperature and proposal width
+   and calls the ordinary Metropolis sweep. Only adaptation adjusts the width.
+2. `gather_current_measurements()` collects total energy, magnetization and
+   proposal widths. Named measurement fields keep MPI array offsets out of
+   the sampling and exchange calculations.
+3. On exchange sweeps, rank zero calls `attempt_adjacent_exchanges()`. It
+   alternates disjoint neighboring pairs and uses the product-canonical ratio
+   with total H, then broadcasts the updated temperature labels.
+4. On saved sweeps, `write_samples()` routes the gathered configuration values
+   into temperature order using the labels after the exchange.
+
+Adaptation has no exchanges. Its final adjusted width is frozen separately
+for each temperature, while its history logs the width actually used for the
+last sweep. When production starts, swap counters and round-trip tracking
+begin, while the exchange RNG and odd/even schedule continue from settling.
+`write_summary()` records the resulting counters and frozen widths. The MPI
+packing and collective calls are contained in `WorkerGroup`.
+
 ## Analysis
 
 The analysis first calculates e, m, absolute m, m squared, m fourth, and e

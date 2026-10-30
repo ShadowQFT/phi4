@@ -90,3 +90,18 @@ Future C++ target warnings: GCC/Clang `-Wall -Wextra -Wpedantic`; MSVC `/W4`.
 Debug safety checks and Linux sanitizers are separate from production
 benchmarks. Tests should be small enough for local iteration. Add CI only
 after targets exist so a green workflow actually means something.
+
+
+## Checking changes and preserving runs
+
+Changes to the Hamiltonian, update rule, observables, or statistics need an
+independent expected value or identity from [the validation plan](VALIDATION.md).
+Comparing two calculations that share the same helper is not enough. Record
+which checks ran and any failures or remaining limitations.
+
+Keep configurations, seeds, raw histories, source identity, and failed-run
+records. Do not overwrite a run or silently combine incompatible datasets.
+Machine-specific settings belong in ignored local configuration files. Build
+outputs, raw datasets, credentials, and local overrides stay out of Git.
+Tests use small disposable inputs; a research campaign or cluster submission
+is a separate action.

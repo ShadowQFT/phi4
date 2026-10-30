@@ -1,13 +1,17 @@
 # Clean 3D phi4: Computational Physics Lab
 
-This is my project for PHYSICS 5409 Computational Physics Lab at Missouri
-University of Science & Technology. I study the phase transition of a clean
-three-dimensional scalar phi4 model using Monte Carlo simulations.
+I am studying how a lattice of continuously varying fields develops collective
+order. This is my project for PHYSICS 5409 Computational Physics Lab at Missouri
+University of Science & Technology.
 
-The goals are to locate the transition, measure its finite-size behavior, and
-compare the estimated critical exponents with the three-dimensional Ising
-universality class. The simulation is written in C++17, with Python for running
-calculations, analyzing the data, and making figures.
+The model is simple: neighboring fields favor alignment, while temperature
+introduces fluctuations. What makes it interesting is that its critical behavior
+should match the three-dimensional Ising model, even though the fields can take
+any real value instead of just two spin values. I am using Monte Carlo simulations
+to locate the transition and estimate the critical exponents from finite lattices.
+
+The simulation is written in C++17. Python handles the runs, statistical analysis,
+and figures, and larger calculations run on Mill with MPI parallel tempering.
 
 ## Methods and workflow
 
@@ -40,8 +44,8 @@ seed, and sweep counts are configured in TOML.
 
 ![Analytical on-site potential for r=-1 and u=1](docs/images/onsite-potential.png)
 
-*The curve shows the analytical on-site term only. It is a model illustration,
-not a simulation result or an estimate of the transition temperature.*
+*The two wells favor positive and negative fields. Neighbor interactions couple
+these local choices into collective order.*
 
 ## Running locally
 
@@ -58,8 +62,7 @@ ctest --test-dir build/local-debug --output-on-failure
 
 The default build requires no MPI installation. MPI is used for the parallel
 tempering runs on Mill; see the [parallel tempering notes](docs/PARALLEL_TEMPERING.md).
-The tests check numerical formulas and the run/analysis workflow. Equilibration
-and critical scaling require separate checks on the simulation data.
+The tests cover the energy calculations, sampling rules, and statistical analysis.
 
 See [development setup](docs/DEVELOPMENT.md) for virtual environments, compiler
 selection, macOS instructions, and a separate build for each platform.
@@ -85,8 +88,8 @@ python scripts/run.py configs/local/smoke.example.toml --binary build/local-debu
 This input performs 100 settling sweeps and saves 100 measurement rows. It writes
 `measurements.csv`, `equilibration.csv`, a resolved configuration, a source
 snapshot, and run metadata under `data/raw/local-smoke/`. Reusing the same output
-path is refused; choose a new run ID for another attempt. This is an operational
-example, not a production physics calculation.
+path is refused; choose a new run ID for another attempt. This small run checks
+that the build and output workflow work before starting longer calculations.
 
 ## Project layout
 
@@ -104,17 +107,21 @@ For a closer look, read the [code walkthrough](docs/CODE.md) and
 explains the boundaries between the components. MPI setup and replica-exchange
 checks are documented in [parallel tempering](docs/PARALLEL_TEMPERING.md).
 
-## Scientific status
+## Progress so far
 
-The simulation, analysis, and cluster workflows are implemented. Critical
-exponents remain preliminary: passing software checks and completing runs do not
-by themselves establish equilibrium or asymptotic scaling. Raw histories,
-independent starts, block sizes, and fit sensitivity must still support any
-scientific claim. The [validation plan](docs/VALIDATION.md) explains the
-checks required before interpreting results.
+The latest runs show a common Binder crossing near `T = 15.310` and a
+susceptibility peak that becomes sharper as the lattice grows. Parallel tempering
+has made it practical to sample several temperatures together at sizes up to
+`L = 48`; separate Metropolis runs also reach `L = 64`.
 
-Generated builds, raw datasets, working plots, and internal research planning
-notes stay out of Git.
+The first exponent estimates are consistent with the 3D Ising comparison within
+their statistical intervals. I am checking how much they change with block length,
+temperature window, and the sizes included in the fit. Longer runs at the larger
+sizes are the next step toward separating statistical uncertainty from finite-size
+effects. The [analysis notes](docs/FINITE_SIZE_SCALING.md) describe the fitting
+procedure.
+
+Raw histories, generated figures, and local research notes stay outside Git.
 
 ## Acknowledgment
 

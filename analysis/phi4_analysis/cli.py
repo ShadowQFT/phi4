@@ -18,7 +18,7 @@ from .statistics import NAMES, block_bootstrap, block_jackknife, observables
 
 
 def _write_json(path, value):
-    # Refuse NaN/Infinity instead of emitting a superficially valid result file.
+    # Require finite numbers in the JSON output.
     path.write_text(
         json.dumps(value, indent=2, allow_nan=False) + "\n", encoding="utf-8"
     )
@@ -144,7 +144,7 @@ def analyze(
         }
         results.append(result)
 
-    # Validate/statistically reduce first. Existing or raw output is never reused.
+    # Finish validation and statistical analysis before creating a fresh output directory.
     output.mkdir(parents=True, exist_ok=False)
     provenance = {
         "schema_version": 1,

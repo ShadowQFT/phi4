@@ -36,7 +36,7 @@ def split_history(energy, magnetization, N, T, block_size):
                 "Fewer than 20 blocks in this half at the selected block length"
             )
         halves.append(result)
-    # A raw difference is descriptive; no independence-based z-test is implied.
+    # Report the difference between the two halves alongside their block errors.
     difference = {
         key: halves[1]["observables"][key] - halves[0]["observables"][key]
         for key in ("e", "abs_m", "m2", "m4", "B4", "binder")

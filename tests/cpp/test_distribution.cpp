@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 
-// Independent Simpson quadrature, not an interacting-model critical-point oracle.
+// Independent Simpson quadrature for the J=0 on-site distribution.
 std::array<double, 3> quadrature(int intervals) {
     std::array<double, 4> integral{};
     const double dx = 16.0 / intervals, T = 1.7;

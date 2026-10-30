@@ -67,7 +67,7 @@ def main():
                     "blocks": [saved[key] for key in row["block_arrays"]],
                 }
             )
-    # These cases are recorded whether or not their results agree with literature.
+    # Record every fit variant and its diagnostics.
     cases = [
         ("full_quadratic", 15.20, 15.40, 2, 0, 1, None),
         ("central_quadratic", 15.24, 15.36, 2, 0, 1, None),

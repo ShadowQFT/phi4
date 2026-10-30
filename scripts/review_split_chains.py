@@ -1,7 +1,7 @@
 """Review production-half differences by permutation of joint moment blocks.
 
 This assumes the retained blocks are approximately exchangeable under the null.
-It does not establish equilibration or override the original screening flags.
+The output retains the original sampling flags for the equilibration review.
 """
 
 import argparse

@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace phi4 {
-// Energies are TOTAL H, never H/N. The ensemble is exp(-H/T).
+// The swap formula uses total lattice energies H and Boltzmann weight exp(-H/T).
 inline double swap_log_ratio(double lower_T, double upper_T, double lower_H, double upper_H) {
     if (!(lower_T > 0 && upper_T > lower_T) || !std::isfinite(upper_T) || !std::isfinite(lower_H) ||
         !std::isfinite(upper_H)) {

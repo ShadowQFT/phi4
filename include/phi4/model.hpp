@@ -81,7 +81,7 @@ inline double delta_energy(const Lattice &lattice, const Model &model, std::size
         neighbor_sum += lattice.field[neighbor];
     }
     const double current = lattice.field.at(site);
-    // All six incident bonds change once; there is no extra factor of 1/2.
+    // The local energy change includes each of the six incident bonds once.
     return -model.J * (proposed - current) * neighbor_sum + onsite(proposed, model) -
            onsite(current, model);
 }

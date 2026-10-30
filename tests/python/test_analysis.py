@@ -51,8 +51,8 @@ class Analysis(unittest.TestCase):
         (folder / "config.resolved.toml").write_text(text, encoding="utf-8")
         config = tomllib.loads(text)
 
-        # Known functions, not simulated observations: allow independent checks
-        # of sign, moments, split offsets, counters and retained-tail accounting.
+        # Analytic histories give exact references for signs, moments, split
+        # offsets, counters, and retained-tail accounting.
         x = np.arange(count)
         magnetization = 1.0 + 0.2 * np.sin(x * 0.17)
         energy = -2.0 + 0.3 * np.cos(x * 0.11)

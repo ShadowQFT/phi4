@@ -6,8 +6,8 @@ University of Science & Technology.
 
 The model is simple: neighboring fields favor alignment, while temperature
 introduces fluctuations. What makes it interesting is that its critical behavior
-should match the three-dimensional Ising model, even though the fields can take
-any real value instead of just two spin values. I am using Monte Carlo simulations
+should match the three-dimensional Ising model. Ising spins take two values;
+the fields in this model vary continuously. I am using Monte Carlo simulations
 to locate the transition and estimate the critical exponents from finite lattices.
 
 The simulation is written in C++17. Python handles the runs, statistical analysis,
@@ -32,8 +32,8 @@ and figures, and larger calculations run on Mill with MPI parallel tempering.
 
 ## Model
 
-Each lattice site holds a real-valued field rather than a binary spin. Neighboring
-sites interact, while the local potential favors two field values:
+Each lattice site holds a real-valued field. Neighboring sites favor alignment,
+and the local potential has two minima:
 
 ```text
 H = -J sum_<ij> phi_i phi_j + sum_i [(r/2) phi_i^2 + (u/4) phi_i^4]

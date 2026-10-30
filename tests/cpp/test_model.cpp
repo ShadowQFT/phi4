@@ -12,7 +12,7 @@ void require(bool x) {
 void near(double a, double b) {
     require(std::abs(a - b) <= 1e-10 * (1 + std::max(std::abs(a), std::abs(b))));
 }
-// Deliberately independent: coordinates and explicit positive bonds, no neighbor helper.
+// Enumerate coordinates and positive-direction bonds directly for the reference energy.
 double oracle(const std::vector<double> &f, int L, phi4::Model p) {
     auto at = [&](int x, int y, int z) {
         return f.at(static_cast<std::size_t>((z * L + y) * L + x));

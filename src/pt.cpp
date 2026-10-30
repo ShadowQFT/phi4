@@ -135,8 +135,9 @@ struct WorkerGroup {
     void gather_replica_measurements(const std::vector<ReplicaMeasurement> &local_measurements,
                                      std::vector<ReplicaMeasurement> &all_measurements) {
 #ifdef PHI4_MPI
-        // MPI mode has exactly one replica on each rank. Pack four doubles in
-        // this documented order, rather than assuming a C++ struct has no padding.
+        // Each MPI rank sends four doubles: total energy, magnetization, current
+        // step size, and the step size used for this sweep. Explicit packing
+        // gives every rank the same message layout.
         constexpr int values_per_replica = 4;
         const auto &local = local_measurements.front();
         const double outgoing_values[values_per_replica] = {local.total_energy, local.magnetization,
@@ -182,7 +183,7 @@ struct WorkerGroup {
 
     void abort_all_workers() {
 #ifdef PHI4_MPI
-        // One rank failing must not leave its peers waiting in a collective.
+        // Abort all ranks together when a worker fails during a collective.
         MPI_Abort(MPI_COMM_WORLD, 1);
 #endif
     }
@@ -293,8 +294,8 @@ class TemperingRun {
     SweepCount total_sweeps = 0;
     SweepCount exchange_pass = 0;
 
-    // Exchange decisions use a separate deterministic stream, so they never
-    // consume random numbers from the local Metropolis samplers. The fixed XOR
+    // Exchange decisions have their own deterministic random-number stream.
+    // Local Metropolis samplers keep their individual streams. The fixed XOR
     // mask in the constructor matches the exchange seed recorded by run_pt.py.
     std::mt19937_64 exchange_rng;
     std::uniform_real_distribution<double> uniform_probability{0, 1};
@@ -328,8 +329,8 @@ class TemperingRun {
             const int temperature_slot = labels.temperature_of_replica[replica_id];
             sampler.temperature = settings.temperatures[temperature_slot];
 
-            // During production, proposal width follows the TEMPERATURE, not
-            // the physical replica that happened to visit that temperature.
+            // Each temperature has a fixed production proposal width. A visiting
+            // replica uses the width assigned to its current temperature.
             if (!adapt_step_sizes) {
                 sampler.step_size = step_by_temperature[temperature_slot];
             }
@@ -383,7 +384,7 @@ class TemperingRun {
 
             // Product-canonical Metropolis ratio:
             // log R = (1/T_lower - 1/T_upper) * (H_lower - H_upper).
-            // These are TOTAL energies; dividing by N here would change the physics.
+            // H_lower and H_upper are the total lattice energies.
             const double log_ratio = phi4::swap_log_ratio(settings.temperatures[lower_slot],
                                                           settings.temperatures[upper_slot],
                                                           lower_total_energy, upper_total_energy);
@@ -416,7 +417,7 @@ class TemperingRun {
     }
 
     void write_samples(SamplingPhase phase, SweepCount phase_sweep) {
-        // Exchanges happen BEFORE routing this sweep's observations to temperature
+        // Apply exchanges before routing this sweep's observations to temperature
         // slots. The gathered H and m stay with their physical configurations.
         const auto replica_at_temperature = labels.replica_at_temperature();
         for (int temperature_slot = 0; temperature_slot < replica_count; ++temperature_slot) {
@@ -444,8 +445,8 @@ class TemperingRun {
     }
 
     void freeze_adapted_step_sizes() {
-        // No labels moved during adaptation: replica r still has temperature r.
-        // At its final sweep, gather_current_measurements saved the UPDATED width,
+        // During adaptation, replica r stays at temperature r.
+        // The final measurement contains the updated proposal width,
         // separately from the width logged as used for that last sweep.
         workers.gather_replica_measurements(local_measurements, all_measurements);
         if (workers.rank == 0) {
@@ -460,8 +461,8 @@ class TemperingRun {
     void run_phase(SamplingPhase phase, SweepCount phase_length) {
         const bool adapt_step_sizes = phase == SamplingPhase::Adaptation;
         if (phase == SamplingPhase::Measurement) {
-            // Restart production statistics, but continue the exchange RNG and
-            // odd/even pair schedule from settling without resetting them.
+            // Reset production statistics. Continue the exchange RNG and
+            // odd/even pair schedule from settling.
             std::fill(swap_attempts.begin(), swap_attempts.end(), 0);
             std::fill(swap_accepts.begin(), swap_accepts.end(), 0);
             if (workers.rank == 0) {

@@ -153,7 +153,7 @@ class TemperatureScan(unittest.TestCase):
         with (output / "summary.csv").open() as input_file:
             rows = list(csv.DictReader(input_file))
         self.assertEqual([int(row["L"]) for row in rows], [4, 4, 3, 3])
-        # For L=3 the fluctuation formula must use N=27, not the first size's N=64.
+        # For L=3 the fluctuation formula uses the matching site count N=27.
         point_path = folder / "L3/temperature_0/measurements.csv"
         with point_path.open() as input_file:
             measurements = list(csv.DictReader(input_file))

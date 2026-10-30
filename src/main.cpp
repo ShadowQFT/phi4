@@ -27,7 +27,7 @@ void validate_counts(const SweepCounts &sweeps) {
 }
 
 void write_measurement(std::ostream &output_file, const phi4::Sampler &sampler) {
-    // Recompute H rather than accumulating local changes and numerical drift.
+    // Calculate H from the current fields to avoid accumulated roundoff error.
     const double energy =
         phi4::energy(sampler.lattice, sampler.model) / sampler.lattice.field.size();
     const double magnetization = sampler.magnetization();
@@ -37,7 +37,7 @@ void write_measurement(std::ostream &output_file, const phi4::Sampler &sampler) 
     output_file << energy << ',' << magnetization;
 }
 
-// Burn-in samples are written for inspection, but never used as production samples.
+// Save burn-in samples separately for equilibration diagnostics.
 void burn_in(phi4::Sampler &sampler, SweepCount count, bool do_adapt, std::ostream &output_file,
              SweepCount &total_sweeps) {
     double acceptance_sum = 0;
